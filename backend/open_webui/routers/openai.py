@@ -46,6 +46,9 @@ from open_webui.utils.payload import (
 from open_webui.utils.misc import (
     convert_logit_bias_input_to_json,
 )
+from open_webui.utils.response import (
+    convert_response_openai_responses_to_openai_chat,
+)
 
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.access_control import has_access
@@ -119,6 +122,82 @@ def openai_reasoning_model_handler(payload):
             payload["messages"][0]["role"] = "developer"
 
     return payload
+
+
+def convert_openai_chat_payload_to_responses(payload: dict) -> dict:
+    """
+    Convert Chat Completions-style payload into OpenAI Responses API payload.
+
+    - messages -> input (with content parts normalized)
+    - max_tokens/max_completion_tokens -> max_output_tokens
+    - remove unsupported sampling params for o-series
+    """
+    def normalize_content_parts(content):
+        # Convert content into Responses API input parts
+        if isinstance(content, str):
+            return [{"type": "input_text", "text": content}]
+        if isinstance(content, list):
+            parts = []
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                t = item.get("type")
+                if t == "text":
+                    parts.append({"type": "input_text", "text": item.get("text", "")})
+                elif t == "image_url":
+                    # Map image_url to input_image
+                    parts.append(
+                        {
+                            "type": "input_image",
+                            "image_url": item.get("image_url", {}),
+                        }
+                    )
+                else:
+                    # Best effort passthrough for unknown types
+                    parts.append(item)
+            return parts
+        return []
+
+    messages = payload.get("messages", [])
+    input_items = []
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role", "user")
+        if role == "system":
+            role = "developer"
+        input_items.append(
+            {
+                "role": role,
+                "content": normalize_content_parts(msg.get("content", "")),
+            }
+        )
+
+    new_payload = {k: v for k, v in payload.items() if k not in ("messages",)}
+    new_payload["input"] = input_items
+
+    # Map token budget key
+    if "max_completion_tokens" in new_payload:
+        new_payload["max_output_tokens"] = new_payload.pop("max_completion_tokens")
+    elif "max_tokens" in new_payload:
+        new_payload["max_output_tokens"] = new_payload.pop("max_tokens")
+
+    # Remove unsupported sampling params for o-series/Responses
+    for k in [
+        "temperature",
+        "top_p",
+        "presence_penalty",
+        "frequency_penalty",
+        "logit_bias",
+        "n",
+    ]:
+        if k in new_payload:
+            new_payload.pop(k, None)
+
+    # Force non-stream to simplify compatibility
+    new_payload["stream"] = False
+
+    return new_payload
 
 
 async def get_headers_and_cookies(
@@ -917,7 +996,28 @@ async def generate_chat_completion(
         headers["api-version"] = api_version
         request_url = f"{request_url}/chat/completions?api-version={api_version}"
     else:
-        request_url = f"{url}/chat/completions"
+        # Determine whether to use Responses API for o-series
+        use_responses = False
+        try:
+            endpoint_pref = (
+                api_config.get("endpoint") or api_config.get("endpoint_type")
+            )
+            use_responses = (
+                True if api_config.get("use_responses") is True else False
+            ) or (endpoint_pref == "responses")
+        except Exception:
+            pass
+
+        # Default to Responses API for OpenAI o-series models
+        if ("api.openai.com" in url) and is_openai_reasoning_model(payload["model"]):
+            use_responses = True if use_responses is not False else use_responses
+
+        if use_responses:
+            # Convert payload to Responses API shape
+            payload = convert_openai_chat_payload_to_responses(payload)
+            request_url = f"{url}/responses"
+        else:
+            request_url = f"{url}/chat/completions"
 
     payload = json.dumps(payload)
 
@@ -963,6 +1063,17 @@ async def generate_chat_completion(
                     return JSONResponse(status_code=r.status, content=response)
                 else:
                     return PlainTextResponse(status_code=r.status, content=response)
+
+            # If we used Responses API (non-stream), convert to chat.completions shape
+            if request_url.endswith("/responses") and isinstance(response, dict):
+                try:
+                    converted = convert_response_openai_responses_to_openai_chat(
+                        response
+                    )
+                    return converted
+                except Exception as e:
+                    log.debug(f"Responses->Chat conversion failed: {e}")
+                    return response
 
             return response
     except Exception as e:

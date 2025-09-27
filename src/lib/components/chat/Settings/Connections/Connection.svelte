@@ -53,9 +53,15 @@
 <div class="flex w-full gap-2 items-center">
 	<Tooltip
 		className="w-full relative"
-		content={$i18n.t(`WebUI will make requests to "{{url}}/chat/completions"`, {
-			url
-		})}
+		content={
+			(() => {
+				const useResponses = Boolean(
+					config?.use_responses || config?.endpoint === 'responses' || config?.endpoint_type === 'responses'
+				);
+				const hint = useResponses ? `WebUI will make requests to "{{url}}/responses"` : `WebUI will make requests to "{{url}}/chat/completions"`;
+				return $i18n.t(hint, { url });
+			})()
+		}
 		placement="top-start"
 	>
 		{#if !(config?.enable ?? true)}

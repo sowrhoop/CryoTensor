@@ -187,3 +187,74 @@ def convert_embedding_response_ollama_to_openai(response) -> dict:
 
     # Fallback: return as is if unrecognized
     return response
+
+
+def _extract_text_from_openai_responses_output(response: dict) -> str:
+    """
+    Best-effort extraction of assistant text from OpenAI Responses API output.
+
+    The Responses API may return:
+      - output_text: string
+      - response: { role, content: [ { type, text, ... }, ... ] }
+      - output: [ { type, text, ... }, ... ]
+
+    This helper normalizes these shapes into a single text string suitable
+    for OpenAI Chat Completions-compatible payloads.
+    """
+    # 1) Preferred: output_text
+    text = response.get("output_text")
+    if isinstance(text, str) and text:
+        return text
+
+    # 2) response.content array
+    try:
+        content = response.get("response", {}).get("content", [])
+        parts = []
+        for item in content:
+            # Common keys: text/output_text
+            if isinstance(item, dict):
+                if isinstance(item.get("text"), str):
+                    parts.append(item.get("text"))
+                elif isinstance(item.get("output_text"), str):
+                    parts.append(item.get("output_text"))
+        if parts:
+            return "".join(parts)
+    except Exception:
+        pass
+
+    # 3) output array fallback
+    try:
+        output = response.get("output", [])
+        parts = []
+        for item in output:
+            if isinstance(item, dict):
+                if isinstance(item.get("text"), str):
+                    parts.append(item.get("text"))
+                elif isinstance(item.get("output_text"), str):
+                    parts.append(item.get("output_text"))
+        if parts:
+            return "".join(parts)
+    except Exception:
+        pass
+
+    # Fallback: nothing meaningful found
+    return ""
+
+
+def convert_response_openai_responses_to_openai_chat(response: dict) -> dict:
+    """
+    Convert a non-streaming OpenAI Responses API result into an
+    OpenAI Chat Completions-compatible response shape.
+    """
+    model = response.get("model", "openai")
+    usage = response.get("usage")
+    message_content = _extract_text_from_openai_responses_output(response)
+
+    # Build standard chat.completions response
+    return openai_chat_completion_message_template(
+        model=model,
+        message=message_content,
+        reasoning_content=None,
+        tool_calls=None,
+        usage=usage,
+    )

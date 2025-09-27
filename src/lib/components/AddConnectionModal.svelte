@@ -33,6 +33,9 @@
 	let key = '';
 	let auth_type = 'bearer';
 
+	// Use OpenAI Responses API (/v1/responses) instead of /v1/chat/completions
+	let useResponses = false;
+
 	let connectionType = 'external';
 	let azure = false;
 	$: azure =
@@ -149,6 +152,8 @@
 				model_ids: modelIds,
 				connection_type: connectionType,
 				auth_type,
+				// Explicit toggle for Responses API routing
+				use_responses: !ollama && !azure ? useResponses : undefined,
 				...(!ollama && azure ? { azure: true, api_version: apiVersion } : {})
 			}
 		};
@@ -164,6 +169,7 @@
 		prefixId = '';
 		tags = [];
 		modelIds = [];
+		useResponses = false;
 	};
 
 	const init = () => {
@@ -184,6 +190,12 @@
 				connectionType = connection.config?.connection_type ?? 'external';
 				azure = connection.config?.azure ?? false;
 				apiVersion = connection.config?.api_version ?? '';
+				// Initialize Responses API toggle from existing config
+				useResponses = Boolean(
+					connection.config?.use_responses ||
+					connection.config?.endpoint === 'responses' ||
+					connection.config?.endpoint_type === 'responses'
+				);
 			}
 		}
 	};
@@ -375,6 +387,22 @@
 								</div>
 							</div>
 						</div>
+
+						{#if !ollama && !azure}
+							<div class="flex gap-2 mt-2 items-center">
+								<div class="flex flex-col flex-1">
+									<div class={`text-xs ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}>
+										{$i18n.t('Use Responses API for chat (required for o‑series)')}
+									</div>
+									<div class={`text-[11px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}>
+										{$i18n.t('Switches to "/v1/responses" instead of "/v1/chat/completions"')}
+									</div>
+								</div>
+								<div class="shrink-0 self-end">
+									<Switch bind:state={useResponses} />
+								</div>
+							</div>
+						{/if}
 
 						<div class="flex gap-2 mt-2">
 							<div class="flex flex-col w-full">
