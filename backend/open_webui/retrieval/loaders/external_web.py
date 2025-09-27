@@ -32,7 +32,7 @@ class ExternalWebLoader(BaseLoader):
                 response = requests.post(
                     self.external_url,
                     headers={
-                        "User-Agent": "Open WebUI (https://github.com/open-webui/open-webui) External Web Loader",
+                        "User-Agent": "CryoTensor UI (https://github.com/your-org/cryotensor-ui) External Web Loader",
                         "Authorization": f"Bearer {self.external_api_key}",
                     },
                     json={

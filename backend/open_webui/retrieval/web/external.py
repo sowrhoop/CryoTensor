@@ -20,7 +20,7 @@ def search_external(
         response = requests.post(
             external_url,
             headers={
-                "User-Agent": "Open WebUI (https://github.com/open-webui/open-webui) RAG Bot",
+                "User-Agent": "CryoTensor UI (https://github.com/your-org/cryotensor-ui) RAG Bot",
                 "Authorization": f"Bearer {external_api_key}",
             },
             json={

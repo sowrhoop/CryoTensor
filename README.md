@@ -1,4 +1,4 @@
-# Open WebUI 👋
+# CryoTensor UI 👋
 
 ![GitHub stars](https://img.shields.io/github/stars/open-webui/open-webui?style=social)
 ![GitHub forks](https://img.shields.io/github/forks/open-webui/open-webui?style=social)
@@ -10,9 +10,9 @@
 [![Discord](https://img.shields.io/badge/Discord-Open_WebUI-blue?logo=discord&logoColor=white)](https://discord.gg/5rJgQTnV4s)
 [![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/tjbck)
 
-**Open WebUI is an [extensible](https://docs.openwebui.com/features/plugin/), feature-rich, and user-friendly self-hosted AI platform designed to operate entirely offline.** It supports various LLM runners like **Ollama** and **OpenAI-compatible APIs**, with **built-in inference engine** for RAG, making it a **powerful AI deployment solution**.
+**CryoTensor UI is an [extensible](https://docs.openwebui.com/features/plugin/) fork of Open WebUI — a feature-rich, user-friendly self-hosted AI platform designed to operate entirely offline.** It supports various LLM runners like **Ollama** and **OpenAI-compatible APIs**, with a **built‑in inference engine** for RAG, making it a **powerful AI deployment solution**.
 
-Passionate about open-source AI? [Join our team →](https://careers.openwebui.com/)
+Originally based on Open WebUI. Branding and defaults updated for CryoTensor UI.
 
 ![Open WebUI Demo](./demo.gif)
 
