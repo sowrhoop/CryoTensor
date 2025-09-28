@@ -17,14 +17,6 @@ export const WEBUI_VERSION = APP_VERSION;
 export const WEBUI_BUILD_HASH = APP_BUILD_HASH;
 export const REQUIRED_OLLAMA_VERSION = '0.1.16';
 
-// Optional brand links (empty = hidden)
-export const BRAND = {
-    WEBSITE: '',
-    DISCORD_INVITE: '',
-    GITHUB_REPO: '', // e.g., 'https://github.com/your-org/cryotensor-ui'
-    TWITTER_HANDLE: '' // e.g., 'CryoTensorUI'
-};
-
 export const SUPPORTED_FILE_TYPE = [
 	'application/epub+zip',
 	'application/pdf',

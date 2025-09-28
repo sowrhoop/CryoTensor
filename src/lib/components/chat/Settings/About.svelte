@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getVersionUpdates } from '$lib/apis';
 	import { getOllamaVersion } from '$lib/apis/ollama';
-	import { WEBUI_BUILD_HASH, WEBUI_VERSION, BRAND } from '$lib/constants';
+	import { WEBUI_BUILD_HASH, WEBUI_VERSION } from '$lib/constants';
 	import { WEBUI_NAME, config, showChangelog } from '$lib/stores';
 	import { compareVersion } from '$lib/utils';
 	import { onMount, getContext } from 'svelte';
@@ -61,20 +61,16 @@
 						</Tooltip>
 
 						{#if $config?.features?.enable_version_update_check}
-							{#if BRAND.GITHUB_REPO}
-								<a
-									href="{BRAND.GITHUB_REPO}/releases/tag/v{version.latest}"
-									target="_blank"
-								>
-							{/if}
+							<a
+								href="https://github.com/open-webui/open-webui/releases/tag/v{version.latest}"
+								target="_blank"
+							>
 								{updateAvailable === null
 									? $i18n.t('Checking for updates...')
 									: updateAvailable
 										? `(v${version.latest} ${$i18n.t('available!')})`
 										: $i18n.t('(latest)')}
-							{#if BRAND.GITHUB_REPO}
-								</a>
-							{/if}
+							</a>
 						{/if}
 					</div>
 
@@ -127,26 +123,26 @@
 			</div>
 		{:else}
 			<div class="flex space-x-1">
-				{#if BRAND.DISCORD_INVITE}
-					<a href={BRAND.DISCORD_INVITE} target="_blank">
-						<img alt="Discord"
-							src="https://img.shields.io/badge/Discord-CryoTensor-blue?logo=discord&logoColor=white" />
-					</a>
-				{/if}
+				<a href="https://discord.gg/5rJgQTnV4s" target="_blank">
+					<img
+						alt="Discord"
+						src="https://img.shields.io/badge/Discord-Open_WebUI-blue?logo=discord&logoColor=white"
+					/>
+				</a>
 
-				{#if BRAND.TWITTER_HANDLE}
-					<a href={`https://twitter.com/${BRAND.TWITTER_HANDLE}`} target="_blank">
-						<img alt="X (formerly Twitter) Follow"
-							src={`https://img.shields.io/twitter/follow/${BRAND.TWITTER_HANDLE}`} />
-					</a>
-				{/if}
+				<a href="https://twitter.com/OpenWebUI" target="_blank">
+					<img
+						alt="X (formerly Twitter) Follow"
+						src="https://img.shields.io/twitter/follow/OpenWebUI"
+					/>
+				</a>
 
-				{#if BRAND.GITHUB_REPO}
-					<a href={BRAND.GITHUB_REPO} target="_blank">
-						<img alt="Github Repo"
-							src={`https://img.shields.io/github/stars/${BRAND.GITHUB_REPO.replace('https://github.com/','')}?style=social&label=Star us on Github`} />
-					</a>
-				{/if}
+				<a href="https://github.com/open-webui/open-webui" target="_blank">
+					<img
+						alt="Github Repo"
+						src="https://img.shields.io/github/stars/open-webui/open-webui?style=social&label=Star us on Github"
+					/>
+				</a>
 			</div>
 		{/if}
 
