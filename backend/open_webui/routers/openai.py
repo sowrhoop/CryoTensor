@@ -145,13 +145,26 @@ def convert_openai_chat_payload_to_responses(payload: dict) -> dict:
                 if t == "text":
                     parts.append({"type": "input_text", "text": item.get("text", "")})
                 elif t == "image_url":
-                    # Map image_url to input_image
-                    parts.append(
-                        {
-                            "type": "input_image",
-                            "image_url": item.get("image_url", {}),
-                        }
-                    )
+                    # Map image_url to input_image and unwrap OpenAI-style payloads
+                    image_payload = item.get("image_url", {})
+
+                    image_part = {"type": "input_image"}
+
+                    # OpenAI Responses API expects a string url or a file reference object.
+                    # Older chat payloads provide an object {"url": "..."} so normalise here.
+                    if isinstance(image_payload, dict):
+                        if image_payload.get("url"):
+                            image_part["image_url"] = image_payload["url"]
+                        elif image_payload.get("file_id"):
+                            image_part["image"] = {"file_id": image_payload["file_id"]}
+                        else:
+                            # Fall back to passing through whichever structure we received.
+                            # This keeps compatibility with any future keys the API might add.
+                            image_part["image_url"] = image_payload
+                    else:
+                        image_part["image_url"] = image_payload
+
+                    parts.append(image_part)
                 else:
                     # Best effort passthrough for unknown types
                     parts.append(item)
