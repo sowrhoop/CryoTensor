@@ -17,7 +17,7 @@ def version_callback(value: bool):
     if value:
         from open_webui.env import VERSION
 
-        typer.echo(f"CryoTensor UI version: {VERSION}")
+        typer.echo(f"Open WebUI version: {VERSION}")
         raise typer.Exit()
 
 

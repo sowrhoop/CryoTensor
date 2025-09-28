@@ -22,7 +22,7 @@ def search_firecrawl(
         response = requests.post(
             firecrawl_search_url,
             headers={
-                "User-Agent": "CryoTensor UI (https://github.com/your-org/cryotensor-ui) RAG Bot",
+                "User-Agent": "Open WebUI (https://github.com/open-webui/open-webui) RAG Bot",
                 "Authorization": f"Bearer {firecrawl_api_key}",
             },
             json={
