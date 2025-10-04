@@ -114,7 +114,15 @@ WEBUI_NAME = os.environ.get("WEBUI_NAME", "Open WebUI")
 if WEBUI_NAME != "Open WebUI":
     WEBUI_NAME += " (Open WebUI)"
 
-WEBUI_FAVICON_URL = "https://openwebui.com/favicon.png"
+WEBUI_FAVICON_URL = os.environ.get("WEBUI_FAVICON_URL", "/favicon.png")
+
+ENABLE_REMOTE_BRANDING_FETCH = (
+    os.environ.get("ENABLE_REMOTE_BRANDING_FETCH", "false").lower() == "true"
+)
+
+ENABLE_REMOTE_LICENSE_FETCH = (
+    os.environ.get("ENABLE_REMOTE_LICENSE_FETCH", "false").lower() == "true"
+)
 
 TRUSTED_SIGNATURE_KEY = os.environ.get("TRUSTED_SIGNATURE_KEY", "")
 

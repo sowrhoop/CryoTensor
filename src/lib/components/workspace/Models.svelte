@@ -54,9 +54,27 @@
 	let filteredModels = [];
 	let selectedModel = null;
 
-	let showModelDeleteConfirm = false;
+let showModelDeleteConfirm = false;
 
-	let group_ids = [];
+let group_ids = [];
+
+const resolveCommunityShareTarget = (path: string) => {
+	const base = $config?.features?.community_sharing_base_url?.trim();
+	if (!base) {
+		toast.error($i18n.t('Community sharing is disabled.'));
+		return null;
+	}
+
+	try {
+		const baseUrl = new URL(base);
+		const target = new URL(path, baseUrl);
+		return { href: target.toString(), origin: target.origin };
+	} catch (error) {
+		console.error('Invalid community sharing URL', error);
+		toast.error($i18n.t('Community sharing URL is invalid.'));
+		return null;
+	}
+};
 
 	$: if (models) {
 		filteredModels = models.filter((m) => {
@@ -103,14 +121,19 @@
 	};
 
 	const shareModelHandler = async (model) => {
-		toast.success($i18n.t('Redirecting you to Open WebUI Community'));
+		const communityTarget = resolveCommunityShareTarget('/models/create');
+		if (!communityTarget) return;
 
-		const url = 'https://openwebui.com';
+		toast.success($i18n.t('Redirecting you to community sharing'));
 
-		const tab = await window.open(`${url}/models/create`, '_blank');
+		const tab = await window.open(communityTarget.href, '_blank');
+		if (!tab) {
+			toast.error($i18n.t('Please allow pop-ups to share to the community.'));
+			return;
+		}
 
 		const messageHandler = (event) => {
-			if (event.origin !== url) return;
+			if (event.origin !== communityTarget.origin) return;
 			if (event.data === 'loaded') {
 				tab.postMessage(JSON.stringify(model), '*');
 				window.removeEventListener('message', messageHandler);

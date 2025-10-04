@@ -16,6 +16,24 @@
 	let shareUrl = null;
 	const i18n = getContext('i18n');
 
+	const resolveCommunityShareTarget = (path: string) => {
+		const base = $config?.features?.community_sharing_base_url?.trim();
+		if (!base) {
+			toast.error($i18n.t('Community sharing is disabled.'));
+			return null;
+		}
+
+		try {
+			const baseUrl = new URL(base);
+			const target = new URL(path, baseUrl);
+			return { href: target.toString(), origin: target.origin };
+		} catch (error) {
+			console.error('Invalid community sharing URL', error);
+			toast.error($i18n.t('Community sharing URL is invalid.'));
+			return null;
+		}
+	};
+
 	const shareLocalChat = async () => {
 		const _chat = chat;
 
@@ -31,17 +49,22 @@
 		const _chat = chat.chat;
 		console.log('share', _chat);
 
-		toast.success($i18n.t('Redirecting you to Open WebUI Community'));
-		const url = 'https://openwebui.com';
-		// const url = 'http://localhost:5173';
+	const communityTarget = resolveCommunityShareTarget('/chats/upload');
+	if (!communityTarget) return;
 
-		const tab = await window.open(`${url}/chats/upload`, '_blank');
-		window.addEventListener(
-			'message',
-			(event) => {
-				if (event.origin !== url) return;
-				if (event.data === 'loaded') {
-					tab.postMessage(
+	toast.success($i18n.t('Redirecting you to community sharing'));
+
+	const tab = await window.open(communityTarget.href, '_blank');
+	if (!tab) {
+		toast.error($i18n.t('Please allow pop-ups to share to the community.'));
+		return;
+	}
+	window.addEventListener(
+		'message',
+		(event) => {
+			if (event.origin !== communityTarget.origin) return;
+			if (event.data === 'loaded') {
+				tab.postMessage(
 						JSON.stringify({
 							chat: _chat,
 							models: $models.filter((m) => _chat.models.includes(m.id))

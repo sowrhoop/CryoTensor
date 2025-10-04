@@ -47,12 +47,23 @@
 	}
 
 	let codeEditor;
-	let boilerplate = `import os
+	let boilerplate = `import ast
+import operator as op
+import os
 import requests
 from datetime import datetime
 from pydantic import BaseModel, Field
 
 class Tools:
+    _allowed_operators = {
+        ast.Add: op.add,
+        ast.Sub: op.sub,
+        ast.Mult: op.mul,
+        ast.Div: op.truediv,
+        ast.Pow: op.pow,
+        ast.USub: op.neg,
+    }
+
     def __init__(self):
         pass
 
@@ -94,6 +105,25 @@ class Tools:
 
         return f"Current Date and Time = {current_date}, {current_time}"
 
+    def _evaluate_equation(self, expression: str) -> float:
+        def _eval(node):
+            if isinstance(node, ast.Num):
+                return node.n
+            if isinstance(node, ast.BinOp):
+                operator = self._allowed_operators.get(type(node.op))
+                if operator is None:
+                    raise ValueError("Unsupported operator")
+                return operator(_eval(node.left), _eval(node.right))
+            if isinstance(node, ast.UnaryOp):
+                operator = self._allowed_operators.get(type(node.op))
+                if operator is None:
+                    raise ValueError("Unsupported operator")
+                return operator(_eval(node.operand))
+            raise ValueError("Unsupported expression")
+
+        tree = ast.parse(expression, mode="eval")
+        return _eval(tree.body)
+
     def calculator(
         self,
         equation: str = Field(
@@ -104,13 +134,11 @@ class Tools:
         Calculate the result of an equation.
         """
 
-        # Avoid using eval in production code
-        # https://nedbatchelder.com/blog/201206/eval_really_is_dangerous.html
         try:
-            result = eval(equation)
+            result = self._evaluate_equation(equation)
             return f"{equation} = {result}"
-        except Exception as e:
-            print(e)
+        except (ValueError, ZeroDivisionError) as error:
+            print(error)
             return "Invalid equation"
 
     def get_current_weather(

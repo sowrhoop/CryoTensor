@@ -30,6 +30,7 @@ from open_webui.env import (
     WEBUI_AUTH,
     WEBUI_FAVICON_URL,
     WEBUI_NAME,
+    ENABLE_REMOTE_BRANDING_FETCH,
     log,
 )
 from open_webui.internal.db import Base, get_db
@@ -839,7 +840,7 @@ if frontend_loader.exists():
 
 CUSTOM_NAME = os.environ.get("CUSTOM_NAME", "")
 
-if CUSTOM_NAME:
+if CUSTOM_NAME and ENABLE_REMOTE_BRANDING_FETCH:
     try:
         r = requests.get(f"https://api.openwebui.com/api/v1/custom/{CUSTOM_NAME}")
         data = r.json()
@@ -874,6 +875,10 @@ if CUSTOM_NAME:
     except Exception as e:
         log.exception(e)
         pass
+elif CUSTOM_NAME and not ENABLE_REMOTE_BRANDING_FETCH:
+    log.info(
+        "ENABLE_REMOTE_BRANDING_FETCH is disabled; skipping remote branding lookup for CUSTOM_NAME"
+    )
 
 
 ####################################
@@ -1449,7 +1454,13 @@ ENABLE_ADMIN_CHAT_ACCESS = (
 ENABLE_COMMUNITY_SHARING = PersistentConfig(
     "ENABLE_COMMUNITY_SHARING",
     "ui.enable_community_sharing",
-    os.environ.get("ENABLE_COMMUNITY_SHARING", "True").lower() == "true",
+    os.environ.get("ENABLE_COMMUNITY_SHARING", "False").lower() == "true",
+)
+
+COMMUNITY_SHARING_BASE_URL = PersistentConfig(
+    "COMMUNITY_SHARING_BASE_URL",
+    "ui.community_sharing_base_url",
+    os.environ.get("COMMUNITY_SHARING_BASE_URL", ""),
 )
 
 ENABLE_MESSAGE_RATING = PersistentConfig(

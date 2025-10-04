@@ -57,7 +57,25 @@
 
 	let showDeleteConfirm = false;
 
-	let filteredItems = [];
+let filteredItems = [];
+
+const resolveCommunityShareTarget = (path: string) => {
+	const base = $config?.features?.community_sharing_base_url?.trim();
+	if (!base) {
+		toast.error($i18n.t('Community sharing is disabled.'));
+		return null;
+	}
+
+	try {
+		const baseUrl = new URL(base);
+		const target = new URL(path, baseUrl);
+		return { href: target.toString(), origin: target.origin };
+	} catch (error) {
+		console.error('Invalid community sharing URL', error);
+		toast.error($i18n.t('Community sharing URL is invalid.'));
+		return null;
+	}
+};
 	$: filteredItems = $functions
 		.filter(
 			(f) =>
@@ -74,19 +92,24 @@
 			return null;
 		});
 
-		toast.success($i18n.t('Redirecting you to Open WebUI Community'));
+	const communityTarget = resolveCommunityShareTarget('/functions/create');
+	if (!communityTarget) return;
 
-		const url = 'https://openwebui.com';
+	toast.success($i18n.t('Redirecting you to community sharing'));
 
-		const tab = await window.open(`${url}/functions/create`, '_blank');
+	const tab = await window.open(communityTarget.href, '_blank');
+	if (!tab) {
+		toast.error($i18n.t('Please allow pop-ups to share to the community.'));
+		return;
+	}
 
-		// Define the event handler function
-		const messageHandler = (event) => {
-			if (event.origin !== url) return;
-			if (event.data === 'loaded') {
-				tab.postMessage(JSON.stringify(item), '*');
+	// Define the event handler function
+	const messageHandler = (event) => {
+		if (event.origin !== communityTarget.origin) return;
+		if (event.data === 'loaded') {
+			tab.postMessage(JSON.stringify(item), '*');
 
-				// Remove the event listener after handling the message
+			// Remove the event listener after handling the message
 				window.removeEventListener('message', messageHandler);
 			}
 		};

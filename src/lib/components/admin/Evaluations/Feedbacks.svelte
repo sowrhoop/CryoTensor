@@ -26,10 +26,10 @@
 	import { WEBUI_BASE_URL } from '$lib/constants';
 	import { config } from '$lib/stores';
 
-	export let feedbacks = [];
+export let feedbacks = [];
 
-	let page = 1;
-	$: paginatedFeedbacks = sortedFeedbacks.slice((page - 1) * 10, page * 10);
+let page = 1;
+$: paginatedFeedbacks = sortedFeedbacks.slice((page - 1) * 10, page * 10);
 
 	let orderBy: string = 'updated_at';
 	let direction: 'asc' | 'desc' = 'desc';
@@ -51,11 +51,29 @@
 		updated_at: number;
 	};
 
-	type ModelStats = {
-		rating: number;
-		won: number;
-		lost: number;
-	};
+type ModelStats = {
+	rating: number;
+	won: number;
+	lost: number;
+};
+
+const resolveCommunityShareTarget = (path: string) => {
+	const base = $config?.features?.community_sharing_base_url?.trim();
+	if (!base) {
+		toast.error($i18n.t('Community sharing is disabled.'));
+		return null;
+	}
+
+	try {
+		const baseUrl = new URL(base);
+		const target = new URL(path, baseUrl);
+		return { href: target.toString(), origin: target.origin };
+	} catch (error) {
+		console.error('Invalid community sharing URL', error);
+		toast.error($i18n.t('Community sharing URL is invalid.'));
+		return null;
+	}
+};
 
 	function setSortKey(key: string) {
 		if (orderBy === key) {
@@ -126,21 +144,27 @@
 	};
 
 	const shareHandler = async () => {
-		toast.success($i18n.t('Redirecting you to Open WebUI Community'));
+	const communityTarget = resolveCommunityShareTarget('/leaderboard');
+	if (!communityTarget) return;
 
-		// remove snapshot from feedbacks
-		const feedbacksToShare = feedbacks.map((f) => {
-			const { snapshot, user, ...rest } = f;
-			return rest;
-		});
-		console.log(feedbacksToShare);
+	toast.success($i18n.t('Redirecting you to community sharing'));
 
-		const url = 'https://openwebui.com';
-		const tab = await window.open(`${url}/leaderboard`, '_blank');
+	// remove snapshot from feedbacks
+	const feedbacksToShare = feedbacks.map((f) => {
+		const { snapshot, user, ...rest } = f;
+		return rest;
+	});
+	console.log(feedbacksToShare);
 
-		// Define the event handler function
-		const messageHandler = (event) => {
-			if (event.origin !== url) return;
+	const tab = await window.open(communityTarget.href, '_blank');
+	if (!tab) {
+		toast.error($i18n.t('Please allow pop-ups to share to the community.'));
+		return;
+	}
+
+	// Define the event handler function
+	const messageHandler = (event) => {
+		if (event.origin !== communityTarget.origin) return;
 			if (event.data === 'loaded') {
 				tab.postMessage(JSON.stringify(feedbacksToShare), '*');
 

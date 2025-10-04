@@ -34,6 +34,7 @@ from open_webui.env import (
     STATIC_DIR,
     SRC_LOG_LEVELS,
     WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
+    ENABLE_REMOTE_LICENSE_FETCH,
 )
 
 from fastapi import BackgroundTasks, Depends, HTTPException, Request, Response, status
@@ -112,7 +113,7 @@ def get_license_data(app, key):
                 f"License: retrieval issue: {getattr(res, 'text', 'unknown error')}"
             )
 
-    if key:
+    if key and ENABLE_REMOTE_LICENSE_FETCH:
         us = [
             "https://api.openwebui.com",
             "https://licenses.api.openwebui.com",
@@ -123,6 +124,8 @@ def get_license_data(app, key):
                     return True
         except Exception as ex:
             log.exception(f"License: Uncaught Exception: {ex}")
+    elif key and not ENABLE_REMOTE_LICENSE_FETCH:
+        log.info("Remote license validation disabled; skipping external license lookup")
 
     try:
         if LICENSE_BLOB:
