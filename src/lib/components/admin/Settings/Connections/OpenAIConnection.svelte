@@ -1,14 +1,11 @@
 <script lang="ts">
-	import { getContext, tick } from 'svelte';
+	import { getContext } from 'svelte';
 	const i18n = getContext('i18n');
 
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
 	import Cog6 from '$lib/components/icons/Cog6.svelte';
 	import AddConnectionModal from '$lib/components/AddConnectionModal.svelte';
 	import ConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
-
-	import { connect } from 'socket.io-client';
 
 	export let onDelete = () => {};
 	export let onSubmit = () => {};
@@ -16,8 +13,11 @@
 	export let pipeline = false;
 
 	export let url = '';
-	export let key = '';
+	export let keyValue = '';
+	export let hasStoredKey = false;
+	export let maskedKey = '';
 	export let config = {};
+	export let allowedUrls: string[] = [];
 
 	let showConfigModal = false;
 	let showDeleteConfirmDialog = false;
@@ -35,15 +35,20 @@
 	bind:show={showConfigModal}
 	connection={{
 		url,
-		key,
+		key: keyValue,
+		hasStoredKey,
+		maskedKey,
 		config
 	}}
+	allowedUrls={allowedUrls}
 	onDelete={() => {
 		showDeleteConfirmDialog = true;
 	}}
 	onSubmit={(connection) => {
 		url = connection.url;
-		key = connection.key;
+		keyValue = connection.key;
+		hasStoredKey = connection.hasStoredKey ?? hasStoredKey;
+		maskedKey = connection.maskedKey ?? maskedKey;
 		config = connection.config;
 		onSubmit(connection);
 	}}

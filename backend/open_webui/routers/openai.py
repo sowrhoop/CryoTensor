@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 import aiohttp
 from aiocache import cached
@@ -24,6 +24,7 @@ from starlette.background import BackgroundTask
 from open_webui.models.models import Models
 from open_webui.config import (
     CACHE_DIR,
+    OPENAI_ALLOWED_API_BASE_URLS,
 )
 from open_webui.env import (
     MODELS_CACHE_TTL,
@@ -52,6 +53,11 @@ from open_webui.utils.response import (
 
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.access_control import has_access
+from open_webui.utils.secrets import (
+    mask_sensitive_value,
+    fingerprint_sensitive_value,
+    encryption_available,
+)
 
 
 log = logging.getLogger(__name__)
@@ -309,20 +315,77 @@ def get_microsoft_entra_id_access_token():
 router = APIRouter()
 
 
+def enforce_allowed_base_urls(app) -> list[str]:
+    allowed = set(OPENAI_ALLOWED_API_BASE_URLS)
+    current_urls = list(app.state.config.OPENAI_API_BASE_URLS)
+    sanitized = [url for url in current_urls if url in allowed]
+
+    if not sanitized:
+        sanitized = [OPENAI_ALLOWED_API_BASE_URLS[0]]
+
+    if sanitized != current_urls:
+        app.state.config.OPENAI_API_BASE_URLS = sanitized
+
+    if len(app.state.config.OPENAI_API_KEYS) != len(sanitized):
+        if len(app.state.config.OPENAI_API_KEYS) > len(sanitized):
+            app.state.config.OPENAI_API_KEYS = app.state.config.OPENAI_API_KEYS[
+                : len(sanitized)
+            ]
+        else:
+            app.state.config.OPENAI_API_KEYS += [""] * (
+                len(sanitized) - len(app.state.config.OPENAI_API_KEYS)
+            )
+
+    allowed_config_keys = list(map(str, range(len(sanitized))))
+    app.state.config.OPENAI_API_CONFIGS = {
+        key: value
+        for key, value in app.state.config.OPENAI_API_CONFIGS.items()
+        if key in allowed_config_keys
+    }
+
+    return list(app.state.config.OPENAI_API_BASE_URLS)
+
+
 @router.get("/config")
 async def get_config(request: Request, user=Depends(get_admin_user)):
+    sanitized_urls = enforce_allowed_base_urls(request.app)
+    stored_keys = request.app.state.config.OPENAI_API_KEYS
+    config_state = getattr(request.app.state.config, "_state", {})
+    persistent_cfg = config_state.get("OPENAI_API_KEYS")
+    persistence_enabled = bool(
+        getattr(persistent_cfg, "persist", False)
+    ) and bool(getattr(persistent_cfg, "sensitive", False))
+
     return {
         "ENABLE_OPENAI_API": request.app.state.config.ENABLE_OPENAI_API,
-        "OPENAI_API_BASE_URLS": request.app.state.config.OPENAI_API_BASE_URLS,
-        "OPENAI_API_KEYS": request.app.state.config.OPENAI_API_KEYS,
+        "OPENAI_API_BASE_URLS": sanitized_urls,
+        "OPENAI_API_KEYS": [
+            {
+                "has_value": bool(key),
+                "masked": mask_sensitive_value(key),
+                "fingerprint": fingerprint_sensitive_value(key),
+            }
+            for key in stored_keys
+        ],
+        "OPENAI_API_KEYS_METADATA": {
+            "persistence_enabled": persistence_enabled,
+            "encryption_enabled": encryption_available(),
+            "stored_entries": len(stored_keys),
+        },
         "OPENAI_API_CONFIGS": request.app.state.config.OPENAI_API_CONFIGS,
+        "OPENAI_ALLOWED_BASE_URLS": OPENAI_ALLOWED_API_BASE_URLS,
     }
+
+
+class OpenAIKeyUpdate(BaseModel):
+    value: Optional[str] = None
+    keep: bool = False
 
 
 class OpenAIConfigForm(BaseModel):
     ENABLE_OPENAI_API: Optional[bool] = None
     OPENAI_API_BASE_URLS: list[str]
-    OPENAI_API_KEYS: list[str]
+    OPENAI_API_KEYS: list[Union[OpenAIKeyUpdate, str]]
     OPENAI_API_CONFIGS: dict
 
 
@@ -331,42 +394,70 @@ async def update_config(
     request: Request, form_data: OpenAIConfigForm, user=Depends(get_admin_user)
 ):
     request.app.state.config.ENABLE_OPENAI_API = form_data.ENABLE_OPENAI_API
-    request.app.state.config.OPENAI_API_BASE_URLS = form_data.OPENAI_API_BASE_URLS
-    request.app.state.config.OPENAI_API_KEYS = form_data.OPENAI_API_KEYS
+    requested_urls = list(form_data.OPENAI_API_BASE_URLS)
 
-    # Check if API KEYS length is same than API URLS length
-    if len(request.app.state.config.OPENAI_API_KEYS) != len(
-        request.app.state.config.OPENAI_API_BASE_URLS
-    ):
-        if len(request.app.state.config.OPENAI_API_KEYS) > len(
-            request.app.state.config.OPENAI_API_BASE_URLS
-        ):
-            request.app.state.config.OPENAI_API_KEYS = (
-                request.app.state.config.OPENAI_API_KEYS[
-                    : len(request.app.state.config.OPENAI_API_BASE_URLS)
-                ]
+    for url in requested_urls:
+        if url not in OPENAI_ALLOWED_API_BASE_URLS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"OpenAI base URL '{url}' is not permitted on this deployment.",
             )
-        else:
-            request.app.state.config.OPENAI_API_KEYS += [""] * (
-                len(request.app.state.config.OPENAI_API_BASE_URLS)
-                - len(request.app.state.config.OPENAI_API_KEYS)
-            )
+
+    request.app.state.config.OPENAI_API_BASE_URLS = requested_urls
+    sanitized_urls = enforce_allowed_base_urls(request.app)
+    existing_keys = list(request.app.state.config.OPENAI_API_KEYS)
+
+    # Ensure we have mutable list to work with
+    new_keys = list(existing_keys)
+
+    for idx, payload in enumerate(form_data.OPENAI_API_KEYS):
+        if isinstance(payload, str):
+            payload = OpenAIKeyUpdate(value=payload)
+
+        if idx >= len(new_keys):
+            new_keys.append("")
+
+        if payload.keep:
+            if idx < len(existing_keys):
+                new_keys[idx] = existing_keys[idx]
+            continue
+
+        if payload.value is not None:
+            new_keys[idx] = payload.value
+        elif idx < len(new_keys):
+            # Explicit clear when value omitted without keep flag
+            new_keys[idx] = ""
+
+    request.app.state.config.OPENAI_API_KEYS = new_keys
+    sanitized_urls = enforce_allowed_base_urls(request.app)
 
     request.app.state.config.OPENAI_API_CONFIGS = form_data.OPENAI_API_CONFIGS
+    sanitized_urls = enforce_allowed_base_urls(request.app)
 
-    # Remove the API configs that are not in the API URLS
-    keys = list(map(str, range(len(request.app.state.config.OPENAI_API_BASE_URLS))))
-    request.app.state.config.OPENAI_API_CONFIGS = {
-        key: value
-        for key, value in request.app.state.config.OPENAI_API_CONFIGS.items()
-        if key in keys
-    }
+    config_state = getattr(request.app.state.config, "_state", {})
+    persistent_cfg = config_state.get("OPENAI_API_KEYS")
+    persistence_enabled = bool(
+        getattr(persistent_cfg, "persist", False)
+    ) and bool(getattr(persistent_cfg, "sensitive", False))
 
     return {
         "ENABLE_OPENAI_API": request.app.state.config.ENABLE_OPENAI_API,
-        "OPENAI_API_BASE_URLS": request.app.state.config.OPENAI_API_BASE_URLS,
-        "OPENAI_API_KEYS": request.app.state.config.OPENAI_API_KEYS,
+        "OPENAI_API_BASE_URLS": sanitized_urls,
+        "OPENAI_API_KEYS": [
+            {
+                "has_value": bool(key),
+                "masked": mask_sensitive_value(key),
+                "fingerprint": fingerprint_sensitive_value(key),
+            }
+            for key in request.app.state.config.OPENAI_API_KEYS
+        ],
+        "OPENAI_API_KEYS_METADATA": {
+            "persistence_enabled": persistence_enabled,
+            "encryption_enabled": encryption_available(),
+            "stored_entries": len(request.app.state.config.OPENAI_API_KEYS),
+        },
         "OPENAI_API_CONFIGS": request.app.state.config.OPENAI_API_CONFIGS,
+        "OPENAI_ALLOWED_BASE_URLS": OPENAI_ALLOWED_API_BASE_URLS,
     }
 
 
@@ -578,6 +669,8 @@ async def get_filtered_models(models, user):
 async def get_all_models(request: Request, user: UserModel) -> dict[str, list]:
     log.info("get_all_models()")
 
+    enforce_allowed_base_urls(request.app)
+
     if not request.app.state.config.ENABLE_OPENAI_API:
         return {"data": []}
 
@@ -641,6 +734,8 @@ async def get_all_models(request: Request, user: UserModel) -> dict[str, list]:
 async def get_models(
     request: Request, url_idx: Optional[int] = None, user=Depends(get_verified_user)
 ):
+    enforce_allowed_base_urls(request.app)
+
     models = {
         "data": [],
     }

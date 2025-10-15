@@ -1,6 +1,37 @@
 import { OPENAI_API_BASE_URL, WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 
-export const getOpenAIConfig = async (token: string = '') => {
+export type OpenAIKeyDescriptor = {
+	has_value: boolean;
+	masked: string;
+	fingerprint?: string | null;
+};
+
+export type OpenAIKeyUpdate = {
+	value?: string;
+	keep?: boolean;
+};
+
+export type OpenAIConfigResponse = {
+	ENABLE_OPENAI_API: boolean | null;
+	OPENAI_API_BASE_URLS: string[];
+	OPENAI_API_KEYS: OpenAIKeyDescriptor[];
+	OPENAI_API_KEYS_METADATA?: {
+		persistence_enabled?: boolean;
+		encryption_enabled?: boolean;
+		stored_entries?: number;
+	};
+	OPENAI_ALLOWED_BASE_URLS?: string[];
+	OPENAI_API_CONFIGS: Record<string, unknown>;
+};
+
+export type OpenAIConfigUpdatePayload = {
+	ENABLE_OPENAI_API: boolean | null;
+	OPENAI_API_BASE_URLS: string[];
+	OPENAI_API_KEYS: OpenAIKeyUpdate[];
+	OPENAI_API_CONFIGS: Record<string, unknown>;
+};
+
+export const getOpenAIConfig = async (token: string = ''): Promise<OpenAIConfigResponse> => {
 	let error = null;
 
 	const res = await fetch(`${OPENAI_API_BASE_URL}/config`, {
@@ -32,14 +63,10 @@ export const getOpenAIConfig = async (token: string = '') => {
 	return res;
 };
 
-type OpenAIConfig = {
-	ENABLE_OPENAI_API: boolean;
-	OPENAI_API_BASE_URLS: string[];
-	OPENAI_API_KEYS: string[];
-	OPENAI_API_CONFIGS: object;
-};
-
-export const updateOpenAIConfig = async (token: string = '', config: OpenAIConfig) => {
+export const updateOpenAIConfig = async (
+	token: string = '',
+	config: OpenAIConfigUpdatePayload
+): Promise<OpenAIConfigResponse> => {
 	let error = null;
 
 	const res = await fetch(`${OPENAI_API_BASE_URL}/config/update`, {

@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import base64
+import copy
 import redis
 
 from datetime import datetime
@@ -35,6 +36,14 @@ from open_webui.env import (
 )
 from open_webui.internal.db import Base, get_db
 from open_webui.utils.redis import get_redis_connection
+from open_webui.utils.secrets import (
+    decrypt_sensitive_value,
+    encrypt_sensitive_value,
+    encryption_available,
+    encryption_feature_enabled,
+    mask_sensitive_value,
+    summarize_sensitive_value,
+)
 
 
 class EndpointFilter(logging.Filter):
@@ -144,8 +153,59 @@ def save_config(config):
     global CONFIG_DATA
     global PERSISTENT_CONFIG_REGISTRY
     try:
-        save_to_db(config)
-        CONFIG_DATA = config
+        config_to_save = copy.deepcopy(config)
+
+        for config_item in PERSISTENT_CONFIG_REGISTRY:
+            if not isinstance(config_item, PersistentConfig):
+                continue
+
+            if config_item.sensitive:
+                path_parts = config_item.config_path.split(".")
+                sub_config = config_to_save
+                for key in path_parts[:-1]:
+                    if not isinstance(sub_config, dict) or key not in sub_config:
+                        sub_config = None
+                        break
+                    sub_config = sub_config[key]
+
+                if not isinstance(sub_config, dict):
+                    continue
+
+                final_key = path_parts[-1]
+                if final_key not in sub_config:
+                    continue
+
+                value = sub_config[final_key]
+
+                if (
+                    isinstance(value, dict)
+                    and value.get("__encrypted__") == "fernet"
+                ):
+                    continue
+
+                if not config_item.persist:
+                    sub_config.pop(final_key, None)
+                    continue
+
+                if encryption_available():
+                    try:
+                        sub_config[final_key] = encrypt_sensitive_value(value)
+                    except Exception as exc:
+                        log.warning(
+                            "Failed to encrypt sensitive config '%s' during import: %s",
+                            config_item.env_name,
+                            exc,
+                        )
+                        sub_config.pop(final_key, None)
+                elif encryption_feature_enabled():
+                    log.warning(
+                        "Dropping sensitive config '%s' during bulk import because CONFIG_ENCRYPTION_KEY is missing.",
+                        config_item.env_name,
+                    )
+                    sub_config.pop(final_key, None)
+
+        save_to_db(config_to_save)
+        CONFIG_DATA = config_to_save
 
         # Trigger updates on all registered PersistentConfig entries
         for config_item in PERSISTENT_CONFIG_REGISTRY:
@@ -164,13 +224,26 @@ ENABLE_PERSISTENT_CONFIG = (
 
 
 class PersistentConfig(Generic[T]):
-    def __init__(self, env_name: str, config_path: str, env_value: T):
+    def __init__(
+        self,
+        env_name: str,
+        config_path: str,
+        env_value: T,
+        persist: Optional[bool] = None,
+        sensitive: bool = False,
+    ):
         self.env_name = env_name
         self.config_path = config_path
         self.env_value = env_value
-        self.config_value = get_config_value(config_path)
+        self.persist = ENABLE_PERSISTENT_CONFIG and (
+            persist if persist is not None else True
+        )
+        self.sensitive = sensitive
 
-        if self.config_value is not None and ENABLE_PERSISTENT_CONFIG:
+        raw_value = get_config_value(config_path)
+        self.config_value = raw_value
+
+        if raw_value is not None and self.persist:
             if (
                 self.config_path.startswith("oauth.")
                 and not ENABLE_OAUTH_PERSISTENT_CONFIG
@@ -180,8 +253,21 @@ class PersistentConfig(Generic[T]):
                 )
                 self.value = env_value
             else:
-                log.info(f"'{env_name}' loaded from the latest database entry")
-                self.value = self.config_value
+                try:
+                    value = (
+                        decrypt_sensitive_value(raw_value)
+                        if self.sensitive
+                        else raw_value
+                    )
+                    log.info(f"'{env_name}' loaded from the latest database entry")
+                    self.value = value
+                except Exception as exc:
+                    log.warning(
+                        "Unable to load persisted value for %s: %s. Using environment default.",
+                        env_name,
+                        exc,
+                    )
+                    self.value = env_value
         else:
             self.value = env_value
 
@@ -205,11 +291,67 @@ class PersistentConfig(Generic[T]):
 
     def update(self):
         new_value = get_config_value(self.config_path)
-        if new_value is not None:
-            self.value = new_value
-            log.info(f"Updated {self.env_name} to new value {self.value}")
+        if new_value is None or not self.persist:
+            return
+
+        try:
+            value = (
+                decrypt_sensitive_value(new_value) if self.sensitive else new_value
+            )
+        except Exception as exc:
+            log.warning(
+                "Skipping update for %s due to decryption error: %s",
+                self.env_name,
+                exc,
+            )
+            return
+
+        self.value = value
+        self.config_value = new_value
+        masked_value = (
+            summarize_sensitive_value(value) if self.sensitive else value
+        )
+        log.info(f"Updated {self.env_name} to new value {masked_value}")
+
+    def _should_persist(self) -> bool:
+        if not self.persist:
+            log.info(
+                "Skipping persistence of '%s' (persistence disabled)", self.env_name
+            )
+            self._clear_persisted_value()
+            return False
+
+        if self.sensitive:
+            if not encryption_feature_enabled():
+                return True
+
+            if not encryption_available():
+                log.warning(
+                    "Skipping persistence of sensitive config '%s' because CONFIG_ENCRYPTION_KEY is not set",
+                    self.env_name,
+                )
+                self._clear_persisted_value()
+                return False
+
+        return True
+
+    def _clear_persisted_value(self):
+        path_parts = self.config_path.split(".")
+        sub_config = CONFIG_DATA
+        for key in path_parts[:-1]:
+            if key not in sub_config:
+                return
+            sub_config = sub_config[key]
+
+        if path_parts[-1] in sub_config:
+            del sub_config[path_parts[-1]]
+            save_to_db(CONFIG_DATA)
+            self.config_value = None
 
     def save(self):
+        if not self._should_persist():
+            return
+
         log.info(f"Saving '{self.env_name}' to the database")
         path_parts = self.config_path.split(".")
         sub_config = CONFIG_DATA
@@ -217,9 +359,14 @@ class PersistentConfig(Generic[T]):
             if key not in sub_config:
                 sub_config[key] = {}
             sub_config = sub_config[key]
-        sub_config[path_parts[-1]] = self.value
+        if self.sensitive and encryption_available():
+            stored_value = encrypt_sensitive_value(self.value)
+        else:
+            stored_value = self.value
+        sub_config[path_parts[-1]] = stored_value
         save_to_db(CONFIG_DATA)
-        self.config_value = self.value
+        self.config_value = stored_value
+
 
 
 class AppConfig:
@@ -257,15 +404,20 @@ class AppConfig:
             self._state[key].save()
 
             if self._redis:
-                redis_key = f"{self._redis_key_prefix}:config:{key}"
-                self._redis.set(redis_key, json.dumps(self._state[key].value))
+                if getattr(self._state[key], "sensitive", False):
+                    log.info(
+                        "Skipping Redis replication for sensitive config '%s'", key
+                    )
+                else:
+                    redis_key = f"{self._redis_key_prefix}:config:{key}"
+                    self._redis.set(redis_key, json.dumps(self._state[key].value))
 
     def __getattr__(self, key):
         if key not in self._state:
             raise AttributeError(f"Config key '{key}' not found")
 
         # If Redis is available, check for an updated value
-        if self._redis:
+        if self._redis and not getattr(self._state[key], "sensitive", False):
             redis_key = f"{self._redis_key_prefix}:config:{key}"
             redis_value = self._redis.get(redis_key)
 
@@ -1010,6 +1162,16 @@ OPENAI_API_BASE_URL = os.environ.get("OPENAI_API_BASE_URL", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_API_BASE_URL = os.environ.get("GEMINI_API_BASE_URL", "")
 
+OPENAI_ALLOWED_API_BASE_URLS = [
+    url.strip().rstrip("/")
+    for url in os.environ.get(
+        "OPENAI_ALLOWED_API_BASE_URLS", "https://api.openai.com/v1"
+    ).split(";")
+    if url.strip()
+]
+if not OPENAI_ALLOWED_API_BASE_URLS:
+    OPENAI_ALLOWED_API_BASE_URLS = ["https://api.openai.com/v1"]
+
 
 if OPENAI_API_BASE_URL == "":
     OPENAI_API_BASE_URL = "https://api.openai.com/v1"
@@ -1022,7 +1184,7 @@ OPENAI_API_KEYS = OPENAI_API_KEYS if OPENAI_API_KEYS != "" else OPENAI_API_KEY
 
 OPENAI_API_KEYS = [url.strip() for url in OPENAI_API_KEYS.split(";")]
 OPENAI_API_KEYS = PersistentConfig(
-    "OPENAI_API_KEYS", "openai.api_keys", OPENAI_API_KEYS
+    "OPENAI_API_KEYS", "openai.api_keys", OPENAI_API_KEYS, sensitive=True
 )
 
 OPENAI_API_BASE_URLS = os.environ.get("OPENAI_API_BASE_URLS", "")
@@ -1031,7 +1193,7 @@ OPENAI_API_BASE_URLS = (
 )
 
 OPENAI_API_BASE_URLS = [
-    url.strip() if url != "" else "https://api.openai.com/v1"
+    (url.strip().rstrip("/") if url.strip() != "" else "https://api.openai.com/v1")
     for url in OPENAI_API_BASE_URLS.split(";")
 ]
 OPENAI_API_BASE_URLS = PersistentConfig(
@@ -2589,6 +2751,7 @@ RAG_EXTERNAL_RERANKER_API_KEY = PersistentConfig(
     "RAG_EXTERNAL_RERANKER_API_KEY",
     "rag.external_reranker_api_key",
     os.environ.get("RAG_EXTERNAL_RERANKER_API_KEY", ""),
+    sensitive=True,
 )
 
 
@@ -2661,6 +2824,7 @@ RAG_OPENAI_API_KEY = PersistentConfig(
     "RAG_OPENAI_API_KEY",
     "rag.openai_api_key",
     os.getenv("RAG_OPENAI_API_KEY", OPENAI_API_KEY),
+    sensitive=True,
 )
 
 RAG_AZURE_OPENAI_BASE_URL = PersistentConfig(
@@ -2672,6 +2836,7 @@ RAG_AZURE_OPENAI_API_KEY = PersistentConfig(
     "RAG_AZURE_OPENAI_API_KEY",
     "rag.azure_openai.api_key",
     os.getenv("RAG_AZURE_OPENAI_API_KEY", ""),
+    sensitive=True,
 )
 RAG_AZURE_OPENAI_API_VERSION = PersistentConfig(
     "RAG_AZURE_OPENAI_API_VERSION",
@@ -2689,6 +2854,7 @@ RAG_OLLAMA_API_KEY = PersistentConfig(
     "RAG_OLLAMA_API_KEY",
     "rag.ollama.key",
     os.getenv("RAG_OLLAMA_API_KEY", ""),
+    sensitive=True,
 )
 
 
@@ -3235,6 +3401,7 @@ IMAGES_OPENAI_API_KEY = PersistentConfig(
     "IMAGES_OPENAI_API_KEY",
     "image_generation.openai.api_key",
     os.getenv("IMAGES_OPENAI_API_KEY", OPENAI_API_KEY),
+    sensitive=True,
 )
 
 IMAGES_GEMINI_API_BASE_URL = PersistentConfig(
@@ -3246,6 +3413,7 @@ IMAGES_GEMINI_API_KEY = PersistentConfig(
     "IMAGES_GEMINI_API_KEY",
     "image_generation.gemini.api_key",
     os.getenv("IMAGES_GEMINI_API_KEY", GEMINI_API_KEY),
+    sensitive=True,
 )
 
 IMAGE_SIZE = PersistentConfig(
@@ -3305,6 +3473,7 @@ AUDIO_STT_OPENAI_API_KEY = PersistentConfig(
     "AUDIO_STT_OPENAI_API_KEY",
     "audio.stt.openai.api_key",
     os.getenv("AUDIO_STT_OPENAI_API_KEY", OPENAI_API_KEY),
+    sensitive=True,
 )
 
 AUDIO_STT_ENGINE = PersistentConfig(
@@ -3370,6 +3539,7 @@ AUDIO_TTS_OPENAI_API_KEY = PersistentConfig(
     "AUDIO_TTS_OPENAI_API_KEY",
     "audio.tts.openai.api_key",
     os.getenv("AUDIO_TTS_OPENAI_API_KEY", OPENAI_API_KEY),
+    sensitive=True,
 )
 
 AUDIO_TTS_API_KEY = PersistentConfig(

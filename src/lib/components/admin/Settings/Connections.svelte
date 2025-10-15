@@ -4,8 +4,14 @@
 
 	const dispatch = createEventDispatcher();
 
-	import { getOllamaConfig, updateOllamaConfig } from '$lib/apis/ollama';
-	import { getOpenAIConfig, updateOpenAIConfig, getOpenAIModels } from '$lib/apis/openai';
+import { getOllamaConfig, updateOllamaConfig } from '$lib/apis/ollama';
+import {
+	getOpenAIConfig,
+	updateOpenAIConfig,
+	getOpenAIModels,
+	type OpenAIKeyDescriptor,
+	type OpenAIConfigResponse
+} from '$lib/apis/openai';
 	import { getModels as _getModels, getBackendConfig } from '$lib/apis';
 	import { getConnectionsConfig, setConnectionsConfig } from '$lib/apis/configs';
 
@@ -36,9 +42,62 @@
 	let OLLAMA_BASE_URLS = [''];
 	let OLLAMA_API_CONFIGS = {};
 
-	let OPENAI_API_KEYS = [''];
-	let OPENAI_API_BASE_URLS = [''];
-	let OPENAI_API_CONFIGS = {};
+let OPENAI_API_KEYS = [''];
+let OPENAI_API_KEY_KEEP: boolean[] = [];
+let OPENAI_API_KEY_METADATA: OpenAIKeyDescriptor[] = [];
+let OPENAI_API_BASE_URLS = [''];
+let OPENAI_API_CONFIGS = {};
+
+let openAIKeySecurityMeta = {
+	persistence_enabled: false,
+	encryption_enabled: false
+};
+
+let allowedOpenAIBaseUrls: string[] = [];
+
+const defaultKeyDescriptor = (): OpenAIKeyDescriptor => ({
+	has_value: false,
+	masked: '',
+	fingerprint: null
+});
+
+const maskKeyForDisplay = (key: string = '') => {
+	if (!key) return '';
+	const visible = key.slice(-4);
+	const maskedLength = Math.max(key.length - visible.length, 4);
+	return `${'*'.repeat(maskedLength)}${visible}`;
+};
+
+const ensureOpenAIArrayLengths = () => {
+	if (OPENAI_API_KEYS.length > OPENAI_API_BASE_URLS.length) {
+		OPENAI_API_KEYS = OPENAI_API_KEYS.slice(0, OPENAI_API_BASE_URLS.length);
+	} else if (OPENAI_API_KEYS.length < OPENAI_API_BASE_URLS.length) {
+		OPENAI_API_KEYS = [
+			...OPENAI_API_KEYS,
+			...Array(OPENAI_API_BASE_URLS.length - OPENAI_API_KEYS.length).fill('')
+		];
+	}
+
+	if (OPENAI_API_KEY_KEEP.length > OPENAI_API_BASE_URLS.length) {
+		OPENAI_API_KEY_KEEP = OPENAI_API_KEY_KEEP.slice(0, OPENAI_API_BASE_URLS.length);
+	} else if (OPENAI_API_KEY_KEEP.length < OPENAI_API_BASE_URLS.length) {
+		OPENAI_API_KEY_KEEP = [
+			...OPENAI_API_KEY_KEEP,
+			...Array(OPENAI_API_BASE_URLS.length - OPENAI_API_KEY_KEEP.length).fill(false)
+		];
+	}
+
+	if (OPENAI_API_KEY_METADATA.length > OPENAI_API_BASE_URLS.length) {
+		OPENAI_API_KEY_METADATA = OPENAI_API_KEY_METADATA.slice(0, OPENAI_API_BASE_URLS.length);
+	} else if (OPENAI_API_KEY_METADATA.length < OPENAI_API_BASE_URLS.length) {
+		OPENAI_API_KEY_METADATA = [
+			...OPENAI_API_KEY_METADATA,
+			...Array(OPENAI_API_BASE_URLS.length - OPENAI_API_KEY_METADATA.length).fill(undefined)
+		].map((item) => item ?? defaultKeyDescriptor());
+	} else {
+		OPENAI_API_KEY_METADATA = OPENAI_API_KEY_METADATA.map((item) => item ?? defaultKeyDescriptor());
+	}
+};
 
 	let ENABLE_OPENAI_API: null | boolean = null;
 	let ENABLE_OLLAMA_API: null | boolean = null;
@@ -49,44 +108,48 @@
 	let showAddOpenAIConnectionModal = false;
 	let showAddOllamaConnectionModal = false;
 
-	const updateOpenAIHandler = async () => {
-		if (ENABLE_OPENAI_API !== null) {
-			// Remove trailing slashes
-			OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS.map((url) => url.replace(/\/$/, ''));
+const updateOpenAIHandler = async () => {
+	if (ENABLE_OPENAI_API !== null) {
+		// Remove trailing slashes
+		OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS.map((url) => url.replace(/\/$/, ''));
+		ensureOpenAIArrayLengths();
 
-			// Check if API KEYS length is same than API URLS length
-			if (OPENAI_API_KEYS.length !== OPENAI_API_BASE_URLS.length) {
-				// if there are more keys than urls, remove the extra keys
-				if (OPENAI_API_KEYS.length > OPENAI_API_BASE_URLS.length) {
-					OPENAI_API_KEYS = OPENAI_API_KEYS.slice(0, OPENAI_API_BASE_URLS.length);
-				}
-
-				// if there are more urls than keys, add empty keys
-				if (OPENAI_API_KEYS.length < OPENAI_API_BASE_URLS.length) {
-					const diff = OPENAI_API_BASE_URLS.length - OPENAI_API_KEYS.length;
-					for (let i = 0; i < diff; i++) {
-						OPENAI_API_KEYS.push('');
-					}
-				}
+		const keyPayloads = OPENAI_API_BASE_URLS.map((_, idx) => {
+			if (OPENAI_API_KEY_KEEP[idx]) {
+				return { keep: true };
 			}
 
-			const res = await updateOpenAIConfig(localStorage.token, {
-				ENABLE_OPENAI_API: ENABLE_OPENAI_API,
-				OPENAI_API_BASE_URLS: OPENAI_API_BASE_URLS,
-				OPENAI_API_KEYS: OPENAI_API_KEYS,
-				OPENAI_API_CONFIGS: OPENAI_API_CONFIGS
-			}).catch((error) => {
-				toast.error(`${error}`);
-			});
+			return { value: OPENAI_API_KEYS[idx] ?? '' };
+		});
 
-			if (res) {
-				toast.success($i18n.t('OpenAI API settings updated'));
-				await models.set(await getModels());
-			}
+		const res = await updateOpenAIConfig(localStorage.token, {
+			ENABLE_OPENAI_API: ENABLE_OPENAI_API,
+			OPENAI_API_BASE_URLS: OPENAI_API_BASE_URLS,
+			OPENAI_API_KEYS: keyPayloads,
+			OPENAI_API_CONFIGS: OPENAI_API_CONFIGS
+		}).catch((error) => {
+			toast.error(`${error}`);
+		});
+
+		if (res) {
+			OPENAI_API_BASE_URLS = res.OPENAI_API_BASE_URLS;
+			OPENAI_API_CONFIGS = res.OPENAI_API_CONFIGS;
+			OPENAI_API_KEY_METADATA = res.OPENAI_API_KEYS ?? [];
+			OPENAI_API_KEYS = OPENAI_API_BASE_URLS.map(() => '');
+			OPENAI_API_KEY_KEEP = OPENAI_API_KEY_METADATA.map((item) => item?.has_value ?? false);
+			openAIKeySecurityMeta = {
+				persistence_enabled: res.OPENAI_API_KEYS_METADATA?.persistence_enabled ?? false,
+				encryption_enabled: res.OPENAI_API_KEYS_METADATA?.encryption_enabled ?? false
+			};
+			allowedOpenAIBaseUrls = res.OPENAI_ALLOWED_BASE_URLS ?? allowedOpenAIBaseUrls;
+			ensureOpenAIArrayLengths();
+			toast.success($i18n.t('OpenAI API settings updated'));
+			await models.set(await getModels());
 		}
-	};
+	}
+};
 
-	const updateOllamaHandler = async () => {
+const updateOllamaHandler = async () => {
 		if (ENABLE_OLLAMA_API !== null) {
 			// Remove trailing slashes
 			OLLAMA_BASE_URLS = OLLAMA_BASE_URLS.map((url) => url.replace(/\/$/, ''));
@@ -118,10 +181,26 @@
 		}
 	};
 
-	const addOpenAIConnectionHandler = async (connection) => {
+const addOpenAIConnectionHandler = async (connection) => {
 		OPENAI_API_BASE_URLS = [...OPENAI_API_BASE_URLS, connection.url];
-		OPENAI_API_KEYS = [...OPENAI_API_KEYS, connection.key];
+		OPENAI_API_KEYS = [...OPENAI_API_KEYS, connection.key ?? ''];
+		OPENAI_API_KEY_KEEP = [
+			...OPENAI_API_KEY_KEEP,
+			Boolean(connection.hasStoredKey && !connection.keyChanged)
+		];
+		OPENAI_API_KEY_METADATA = [
+			...OPENAI_API_KEY_METADATA,
+			connection.key
+				? {
+					masked: maskKeyForDisplay(connection.key),
+					has_value: true,
+					fingerprint: null
+				}
+				: defaultKeyDescriptor()
+		];
 		OPENAI_API_CONFIGS[OPENAI_API_BASE_URLS.length - 1] = connection.config;
+
+		ensureOpenAIArrayLengths();
 
 		await updateOpenAIHandler();
 	};
@@ -137,9 +216,9 @@
 	};
 
 	onMount(async () => {
-		if ($user?.role === 'admin') {
-			let ollamaConfig = {};
-			let openaiConfig = {};
+	if ($user?.role === 'admin') {
+		let ollamaConfig = {};
+		let openaiConfig: OpenAIConfigResponse;
 
 			await Promise.all([
 				(async () => {
@@ -157,8 +236,20 @@
 			ENABLE_OLLAMA_API = ollamaConfig.ENABLE_OLLAMA_API;
 
 			OPENAI_API_BASE_URLS = openaiConfig.OPENAI_API_BASE_URLS;
-			OPENAI_API_KEYS = openaiConfig.OPENAI_API_KEYS;
+			OPENAI_API_KEY_METADATA = (openaiConfig.OPENAI_API_KEYS ?? []).map((item) =>
+				item ?? defaultKeyDescriptor()
+			);
+			OPENAI_API_KEYS = OPENAI_API_BASE_URLS.map(() => '');
+			OPENAI_API_KEY_KEEP = OPENAI_API_BASE_URLS.map(
+				(_, idx) => OPENAI_API_KEY_METADATA[idx]?.has_value ?? false
+			);
 			OPENAI_API_CONFIGS = openaiConfig.OPENAI_API_CONFIGS;
+			openAIKeySecurityMeta = {
+				persistence_enabled: openaiConfig.OPENAI_API_KEYS_METADATA?.persistence_enabled ?? false,
+				encryption_enabled: openaiConfig.OPENAI_API_KEYS_METADATA?.encryption_enabled ?? false
+			};
+			allowedOpenAIBaseUrls = openaiConfig.OPENAI_ALLOWED_BASE_URLS ?? [];
+			ensureOpenAIArrayLengths();
 
 			OLLAMA_BASE_URLS = ollamaConfig.OLLAMA_BASE_URLS;
 			OLLAMA_API_CONFIGS = ollamaConfig.OLLAMA_API_CONFIGS;
@@ -206,6 +297,7 @@
 
 <AddConnectionModal
 	bind:show={showAddOpenAIConnectionModal}
+	allowedUrls={allowedOpenAIBaseUrls}
 	onSubmit={addOpenAIConnectionHandler}
 />
 
@@ -242,8 +334,8 @@
 
 						{#if ENABLE_OPENAI_API}
 							<div class="">
-								<div class="flex justify-between items-center">
-									<div class="font-medium text-xs">{$i18n.t('Manage OpenAI API Connections')}</div>
+				<div class="flex justify-between items-center">
+					<div class="font-medium text-xs">{$i18n.t('Manage OpenAI API Connections')}</div>
 
 									<Tooltip content={$i18n.t(`Add Connection`)}>
 										<button
@@ -258,33 +350,76 @@
 									</Tooltip>
 								</div>
 
-								<div class="flex flex-col gap-1.5 mt-1.5">
-									{#each OPENAI_API_BASE_URLS as url, idx}
-										<OpenAIConnection
-											bind:url={OPENAI_API_BASE_URLS[idx]}
-											bind:key={OPENAI_API_KEYS[idx]}
-											bind:config={OPENAI_API_CONFIGS[idx]}
-											pipeline={pipelineUrls[url] ? true : false}
-											onSubmit={() => {
-												updateOpenAIHandler();
-											}}
-											onDelete={() => {
-												OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS.filter(
-													(url, urlIdx) => idx !== urlIdx
-												);
-												OPENAI_API_KEYS = OPENAI_API_KEYS.filter((key, keyIdx) => idx !== keyIdx);
+				<div class="flex flex-col gap-1.5 mt-1.5">
+					{#each OPENAI_API_BASE_URLS as url, idx}
+						<OpenAIConnection
+							bind:url={OPENAI_API_BASE_URLS[idx]}
+							bind:keyValue={OPENAI_API_KEYS[idx]}
+							hasStoredKey={OPENAI_API_KEY_KEEP[idx]}
+							maskedKey={OPENAI_API_KEY_METADATA[idx]?.masked ?? ''}
+							allowedUrls={allowedOpenAIBaseUrls}
+							bind:config={OPENAI_API_CONFIGS[idx]}
+							pipeline={pipelineUrls[url] ? true : false}
+							onSubmit={(connection) => {
+								OPENAI_API_BASE_URLS[idx] = connection.url;
+								OPENAI_API_CONFIGS[idx] = connection.config;
+								if (connection.keyChanged) {
+									OPENAI_API_KEYS[idx] = connection.key ?? '';
+									OPENAI_API_KEY_KEEP[idx] = false;
+									OPENAI_API_KEY_METADATA[idx] = connection.key
+										? {
+											masked: maskKeyForDisplay(connection.key),
+											has_value: true,
+											fingerprint: null
+										}
+										: defaultKeyDescriptor();
+								} else {
+									OPENAI_API_KEYS[idx] = '';
+									OPENAI_API_KEY_KEEP[idx] = connection.hasStoredKey ?? false;
+									OPENAI_API_KEY_METADATA[idx] = {
+										...(OPENAI_API_KEY_METADATA[idx] ?? defaultKeyDescriptor()),
+										has_value: connection.hasStoredKey ?? false
+									};
+								}
+								ensureOpenAIArrayLengths();
+								updateOpenAIHandler();
+							}}
+							onDelete={() => {
+								OPENAI_API_BASE_URLS = OPENAI_API_BASE_URLS.filter(
+									(url, urlIdx) => idx !== urlIdx
+								);
+								OPENAI_API_KEYS = OPENAI_API_KEYS.filter((key, keyIdx) => idx !== keyIdx);
+								OPENAI_API_KEY_KEEP = OPENAI_API_KEY_KEEP.filter((keep, keepIdx) => idx !== keepIdx);
+								OPENAI_API_KEY_METADATA = OPENAI_API_KEY_METADATA.filter(
+									(_, metaIdx) => idx !== metaIdx
+								);
 
-												let newConfig = {};
-												OPENAI_API_BASE_URLS.forEach((url, newIdx) => {
-													newConfig[newIdx] =
-														OPENAI_API_CONFIGS[newIdx < idx ? newIdx : newIdx + 1];
-												});
-												OPENAI_API_CONFIGS = newConfig;
-												updateOpenAIHandler();
-											}}
-										/>
-									{/each}
-								</div>
+								let newConfig = {};
+								OPENAI_API_BASE_URLS.forEach((url, newIdx) => {
+									newConfig[newIdx] =
+										OPENAI_API_CONFIGS[newIdx < idx ? newIdx : newIdx + 1];
+								});
+								OPENAI_API_CONFIGS = newConfig;
+								ensureOpenAIArrayLengths();
+								updateOpenAIHandler();
+							}}
+						/>
+					{/each}
+				</div>
+
+				{#if allowedOpenAIBaseUrls.length > 0}
+					<div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+						{$i18n.t('Only the following OpenAI endpoints are allowed: {{endpoints}}', {
+							endpoints: allowedOpenAIBaseUrls.join(', ')
+						})}
+					</div>
+				{/if}
+
+				{#if !openAIKeySecurityMeta.encryption_enabled}
+					<div class="mt-1 text-xs text-amber-600 dark:text-amber-400">
+						{$i18n.t('CONFIG_ENCRYPTION_KEY is not set, so stored API keys remain in-memory only and are cleared on restart.')}
+					</div>
+				{/if}
 							</div>
 						{/if}
 					</div>

@@ -1,5 +1,4 @@
 import logging
-import json
 import time
 import uuid
 from typing import Optional
@@ -8,6 +7,12 @@ from open_webui.internal.db import Base, get_db
 from open_webui.models.tags import TagModel, Tag, Tags
 from open_webui.models.folders import Folders
 from open_webui.env import SRC_LOG_LEVELS
+from open_webui.utils.secrets import (
+    decrypt_sensitive_value,
+    encrypt_sensitive_value,
+    encryption_available,
+    encryption_feature_enabled,
+)
 
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import BigInteger, Boolean, Column, String, Text, JSON, Index
@@ -123,79 +128,114 @@ class ChatTitleIdResponse(BaseModel):
 
 
 class ChatTable:
+    _encryption_warning_logged = False
+
+    def _serialize_chat_payload(self, chat: Optional[dict]) -> Optional[dict]:
+        if chat is None:
+            return None
+
+        if isinstance(chat, dict) and chat.get("__encrypted__") == "fernet":
+            return chat
+
+        if encryption_available():
+            try:
+                return encrypt_sensitive_value(chat)
+            except Exception as exc:
+                log.warning(
+                    "Failed to encrypt chat payload; storing plaintext chat history: %s",
+                    exc,
+                )
+                return chat
+
+        if encryption_feature_enabled() and not type(self)._encryption_warning_logged:
+            log.warning(
+                "CONFIG_ENCRYPTION_KEY is not set; chat transcripts will be stored unencrypted."
+            )
+            type(self)._encryption_warning_logged = True
+
+        return chat
+
+    def _deserialize_chat_payload(self, payload: Optional[dict]) -> dict:
+        if payload is None:
+            return {}
+
+        try:
+            return decrypt_sensitive_value(payload)
+        except Exception as exc:
+            if isinstance(payload, dict) and payload.get("__encrypted__") == "fernet":
+                log.error("Unable to decrypt chat payload: %s", exc)
+                return {}
+            return payload if isinstance(payload, dict) else {}
+
+    def _model_from_record(self, record: Optional[Chat]) -> Optional[ChatModel]:
+        if not record:
+            return None
+
+        model = ChatModel.model_validate(record)
+        model.chat = self._deserialize_chat_payload(record.chat)
+        return model
+
+    def _models_from_records(self, records: list[Chat]) -> list[ChatModel]:
+        return [self._model_from_record(record) for record in records if record]
+
     def insert_new_chat(self, user_id: str, form_data: ChatForm) -> Optional[ChatModel]:
         with get_db() as db:
             id = str(uuid.uuid4())
-            chat = ChatModel(
-                **{
-                    "id": id,
-                    "user_id": user_id,
-                    "title": (
-                        form_data.chat["title"]
-                        if "title" in form_data.chat
-                        else "New Chat"
-                    ),
-                    "chat": form_data.chat,
-                    "folder_id": form_data.folder_id,
-                    "created_at": int(time.time()),
-                    "updated_at": int(time.time()),
-                }
-            )
+            now = int(time.time())
+            title = form_data.chat.get("title", "New Chat") if form_data.chat else "New Chat"
+            stored_chat = self._serialize_chat_payload(form_data.chat)
 
-            result = Chat(**chat.model_dump())
+            result = Chat(
+                id=id,
+                user_id=user_id,
+                title=title,
+                chat=stored_chat,
+                folder_id=form_data.folder_id,
+                created_at=now,
+                updated_at=now,
+            )
             db.add(result)
             db.commit()
             db.refresh(result)
-            return ChatModel.model_validate(result) if result else None
+            return self._model_from_record(result)
 
     def import_chat(
         self, user_id: str, form_data: ChatImportForm
     ) -> Optional[ChatModel]:
         with get_db() as db:
             id = str(uuid.uuid4())
-            chat = ChatModel(
-                **{
-                    "id": id,
-                    "user_id": user_id,
-                    "title": (
-                        form_data.chat["title"]
-                        if "title" in form_data.chat
-                        else "New Chat"
-                    ),
-                    "chat": form_data.chat,
-                    "meta": form_data.meta,
-                    "pinned": form_data.pinned,
-                    "folder_id": form_data.folder_id,
-                    "created_at": (
-                        form_data.created_at
-                        if form_data.created_at
-                        else int(time.time())
-                    ),
-                    "updated_at": (
-                        form_data.updated_at
-                        if form_data.updated_at
-                        else int(time.time())
-                    ),
-                }
-            )
+            created_at = form_data.created_at if form_data.created_at else int(time.time())
+            updated_at = form_data.updated_at if form_data.updated_at else int(time.time())
+            title = form_data.chat.get("title", "New Chat") if form_data.chat else "New Chat"
+            stored_chat = self._serialize_chat_payload(form_data.chat)
 
-            result = Chat(**chat.model_dump())
+            result = Chat(
+                id=id,
+                user_id=user_id,
+                title=title,
+                chat=stored_chat,
+                meta=form_data.meta,
+                pinned=form_data.pinned,
+                folder_id=form_data.folder_id,
+                created_at=created_at,
+                updated_at=updated_at,
+            )
             db.add(result)
             db.commit()
             db.refresh(result)
-            return ChatModel.model_validate(result) if result else None
+            return self._model_from_record(result)
 
     def update_chat_by_id(self, id: str, chat: dict) -> Optional[ChatModel]:
         try:
             with get_db() as db:
                 chat_item = db.get(Chat, id)
-                chat_item.chat = chat
+                chat_item.chat = self._serialize_chat_payload(chat)
                 chat_item.title = chat["title"] if "title" in chat else "New Chat"
                 chat_item.updated_at = int(time.time())
                 db.commit()
                 db.refresh(chat_item)
 
-                return ChatModel.model_validate(chat_item)
+                return self._model_from_record(chat_item)
         except Exception:
             return None
 
@@ -304,21 +344,22 @@ class ChatTable:
             # Check if the chat is already shared
             if chat.share_id:
                 return self.get_chat_by_id_and_user_id(chat.share_id, "shared")
+            chat_payload = self._deserialize_chat_payload(chat.chat)
+            stored_chat = self._serialize_chat_payload(chat_payload)
             # Create a new chat with the same data, but with a new ID
-            shared_chat = ChatModel(
-                **{
-                    "id": str(uuid.uuid4()),
-                    "user_id": f"shared-{chat_id}",
-                    "title": chat.title,
-                    "chat": chat.chat,
-                    "meta": chat.meta,
-                    "pinned": chat.pinned,
-                    "folder_id": chat.folder_id,
-                    "created_at": chat.created_at,
-                    "updated_at": int(time.time()),
-                }
+            shared_chat_id = str(uuid.uuid4())
+            now = int(time.time())
+            shared_result = Chat(
+                id=shared_chat_id,
+                user_id=f"shared-{chat_id}",
+                title=chat.title,
+                chat=stored_chat,
+                meta=chat.meta,
+                pinned=chat.pinned,
+                folder_id=chat.folder_id,
+                created_at=chat.created_at,
+                updated_at=now,
             )
-            shared_result = Chat(**shared_chat.model_dump())
             db.add(shared_result)
             db.commit()
             db.refresh(shared_result)
@@ -327,10 +368,10 @@ class ChatTable:
             result = (
                 db.query(Chat)
                 .filter_by(id=chat_id)
-                .update({"share_id": shared_chat.id})
+                .update({"share_id": shared_chat_id})
             )
             db.commit()
-            return shared_chat if (shared_result and result) else None
+            return self._model_from_record(shared_result) if (shared_result and result) else None
 
     def update_shared_chat_by_chat_id(self, chat_id: str) -> Optional[ChatModel]:
         try:
@@ -343,8 +384,9 @@ class ChatTable:
                 if shared_chat is None:
                     return self.insert_shared_chat_by_chat_id(chat_id)
 
+                chat_payload = self._deserialize_chat_payload(chat.chat)
                 shared_chat.title = chat.title
-                shared_chat.chat = chat.chat
+                shared_chat.chat = self._serialize_chat_payload(chat_payload)
                 shared_chat.meta = chat.meta
                 shared_chat.pinned = chat.pinned
                 shared_chat.folder_id = chat.folder_id
@@ -352,7 +394,7 @@ class ChatTable:
                 db.commit()
                 db.refresh(shared_chat)
 
-                return ChatModel.model_validate(shared_chat)
+                return self._model_from_record(shared_chat)
         except Exception:
             return None
 
@@ -384,7 +426,7 @@ class ChatTable:
                 chat.share_id = share_id
                 db.commit()
                 db.refresh(chat)
-                return ChatModel.model_validate(chat)
+                return self._model_from_record(chat)
         except Exception:
             return None
 
@@ -396,7 +438,7 @@ class ChatTable:
                 chat.updated_at = int(time.time())
                 db.commit()
                 db.refresh(chat)
-                return ChatModel.model_validate(chat)
+                return self._model_from_record(chat)
         except Exception:
             return None
 
@@ -408,7 +450,7 @@ class ChatTable:
                 chat.updated_at = int(time.time())
                 db.commit()
                 db.refresh(chat)
-                return ChatModel.model_validate(chat)
+                return self._model_from_record(chat)
         except Exception:
             return None
 
@@ -456,7 +498,7 @@ class ChatTable:
                 query = query.limit(limit)
 
             all_chats = query.all()
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_chat_list_by_user_id(
         self,
@@ -495,7 +537,7 @@ class ChatTable:
                 query = query.limit(limit)
 
             all_chats = query.all()
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_chat_title_id_list_by_user_id(
         self,
@@ -551,13 +593,13 @@ class ChatTable:
                 .order_by(Chat.updated_at.desc())
                 .all()
             )
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_chat_by_id(self, id: str) -> Optional[ChatModel]:
         try:
             with get_db() as db:
                 chat = db.get(Chat, id)
-                return ChatModel.model_validate(chat)
+                return self._model_from_record(chat)
         except Exception:
             return None
 
@@ -579,7 +621,7 @@ class ChatTable:
         try:
             with get_db() as db:
                 chat = db.query(Chat).filter_by(id=id, user_id=user_id).first()
-                return ChatModel.model_validate(chat)
+                return self._model_from_record(chat)
         except Exception:
             return None
 
@@ -590,7 +632,7 @@ class ChatTable:
                 # .limit(limit).offset(skip)
                 .order_by(Chat.updated_at.desc())
             )
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_chats_by_user_id(self, user_id: str) -> list[ChatModel]:
         with get_db() as db:
@@ -599,7 +641,7 @@ class ChatTable:
                 .filter_by(user_id=user_id)
                 .order_by(Chat.updated_at.desc())
             )
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_pinned_chats_by_user_id(self, user_id: str) -> list[ChatModel]:
         with get_db() as db:
@@ -608,7 +650,7 @@ class ChatTable:
                 .filter_by(user_id=user_id, pinned=True, archived=False)
                 .order_by(Chat.updated_at.desc())
             )
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_archived_chats_by_user_id(self, user_id: str) -> list[ChatModel]:
         with get_db() as db:
@@ -617,7 +659,7 @@ class ChatTable:
                 .filter_by(user_id=user_id, archived=True)
                 .order_by(Chat.updated_at.desc())
             )
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_chats_by_user_id_and_search_text(
         self,
@@ -816,7 +858,7 @@ class ChatTable:
             log.info(f"The number of chats: {len(all_chats)}")
 
             # Validate and return chats
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_chats_by_folder_id_and_user_id(
         self, folder_id: str, user_id: str, skip: int = 0, limit: int = 60
@@ -834,7 +876,7 @@ class ChatTable:
                 query = query.limit(limit)
 
             all_chats = query.all()
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def get_chats_by_folder_ids_and_user_id(
         self, folder_ids: list[str], user_id: str
@@ -849,7 +891,7 @@ class ChatTable:
             query = query.order_by(Chat.updated_at.desc())
 
             all_chats = query.all()
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def update_chat_folder_id_by_id_and_user_id(
         self, id: str, user_id: str, folder_id: str
@@ -862,7 +904,7 @@ class ChatTable:
                 chat.pinned = False
                 db.commit()
                 db.refresh(chat)
-                return ChatModel.model_validate(chat)
+                return self._model_from_record(chat)
         except Exception:
             return None
 
@@ -901,7 +943,7 @@ class ChatTable:
 
             all_chats = query.all()
             log.debug(f"all_chats: {all_chats}")
-            return [ChatModel.model_validate(chat) for chat in all_chats]
+            return self._models_from_records(all_chats)
 
     def add_chat_tag_by_id_and_user_id_and_tag_name(
         self, id: str, user_id: str, tag_name: str
@@ -922,7 +964,7 @@ class ChatTable:
 
                 db.commit()
                 db.refresh(chat)
-                return ChatModel.model_validate(chat)
+                return self._model_from_record(chat)
         except Exception:
             return None
 

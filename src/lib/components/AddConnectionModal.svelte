@@ -27,14 +27,18 @@
 	export let ollama = false;
 	export let direct = false;
 
-	export let connection = null;
+export let connection = null;
+export let allowedUrls: string[] = [];
 
-	let url = '';
-	let key = '';
-	let auth_type = 'bearer';
+let url = '';
+let key = '';
+let auth_type = 'bearer';
+let hasStoredKey = false;
+let maskedKey = '';
+let keyChanged = false;
 
-	// Use OpenAI Responses API (/v1/responses) instead of /v1/chat/completions
-	let useResponses = false;
+// Use OpenAI Responses API (/v1/responses) instead of /v1/chat/completions
+let useResponses = false;
 
 	let connectionType = 'external';
 	let azure = false;
@@ -48,13 +52,33 @@
 	let tags = [];
 
 	let modelId = '';
-	let modelIds = [];
+let modelIds = [];
 
-	let loading = false;
+let loading = false;
+
+const maskKeyForDisplay = (value: string = '') => {
+	if (!value) return '';
+	const visible = value.slice(-4);
+	const maskedLength = Math.max(value.length - visible.length, 4);
+	return `${'*'.repeat(maskedLength)}${visible}`;
+};
+
+const clearStoredKey = () => {
+	key = '';
+	keyChanged = true;
+	hasStoredKey = false;
+	maskedKey = '';
+};
 
 	const verifyOllamaHandler = async () => {
 		// remove trailing slash from url
 		url = url.replace(/\/$/, '');
+
+		if (!ollama && allowedUrls.length > 0 && !allowedUrls.includes(url)) {
+			loading = false;
+			toast.error($i18n.t('This deployment only permits the official OpenAI endpoint.'));
+			return;
+		}
 
 		const res = await verifyOllamaConnection(localStorage.token, {
 			url,
@@ -125,7 +149,7 @@
 				return;
 			}
 
-			if (!key && !['azure_ad', 'microsoft_entra_id'].includes(auth_type)) {
+			if (!key && !hasStoredKey && !['azure_ad', 'microsoft_entra_id'].includes(auth_type)) {
 				loading = false;
 
 				toast.error($i18n.t('Key is required'));
@@ -142,9 +166,17 @@
 		// remove trailing slash from url
 		url = url.replace(/\/$/, '');
 
+		if (keyChanged && key) {
+			maskedKey = maskKeyForDisplay(key);
+		}
+
+		const keyPayload = keyChanged ? key : '';
 		const connection = {
 			url,
-			key,
+			key: keyPayload,
+			keyChanged,
+			hasStoredKey: hasStoredKey && !keyChanged,
+			maskedKey,
 			config: {
 				enable: enable,
 				tags: tags,
@@ -165,6 +197,9 @@
 
 		url = '';
 		key = '';
+		hasStoredKey = false;
+		maskedKey = '';
+		keyChanged = false;
 		auth_type = 'bearer';
 		prefixId = '';
 		tags = [];
@@ -174,35 +209,52 @@
 
 	const init = () => {
 		if (connection) {
-			url = connection.url;
-			key = connection.key;
+			const connConfig = connection.config ?? {};
 
-			auth_type = connection.config.auth_type ?? 'bearer';
+			url = connection.url ?? '';
+			key = connection.key ?? '';
+			maskedKey = connection.maskedKey ?? '';
+			hasStoredKey = Boolean(connection.hasStoredKey);
+			keyChanged = Boolean(key);
+			if (hasStoredKey && !keyChanged) {
+				key = '';
+			}
 
-			enable = connection.config?.enable ?? true;
-			tags = connection.config?.tags ?? [];
-			prefixId = connection.config?.prefix_id ?? '';
-			modelIds = connection.config?.model_ids ?? [];
+			auth_type = connConfig.auth_type ?? 'bearer';
+
+			enable = connConfig?.enable ?? true;
+			tags = connConfig?.tags ?? [];
+			prefixId = connConfig?.prefix_id ?? '';
+			modelIds = connConfig?.model_ids ?? [];
 
 			if (ollama) {
-				connectionType = connection.config?.connection_type ?? 'local';
+				connectionType = connConfig?.connection_type ?? 'local';
 			} else {
-				connectionType = connection.config?.connection_type ?? 'external';
-				azure = connection.config?.azure ?? false;
-				apiVersion = connection.config?.api_version ?? '';
+				connectionType = connConfig?.connection_type ?? 'external';
+				azure = connConfig?.azure ?? false;
+				apiVersion = connConfig?.api_version ?? '';
 				// Initialize Responses API toggle from existing config
 				useResponses = Boolean(
-					connection.config?.use_responses ||
-					connection.config?.endpoint === 'responses' ||
-					connection.config?.endpoint_type === 'responses'
+					connConfig?.use_responses ||
+					connConfig?.endpoint === 'responses' ||
+					connConfig?.endpoint_type === 'responses'
 				);
 			}
+		} else if (!ollama && allowedUrls.length > 0) {
+			url = allowedUrls[0];
+		}
+
+		if (!ollama && allowedUrls.length > 0 && !allowedUrls.includes(url)) {
+			url = allowedUrls[0];
 		}
 	};
 
-	$: if (show) {
-		init();
+$: if (show) {
+	if (!ollama && allowedUrls.length > 0 && !allowedUrls.includes(url)) {
+		url = allowedUrls[0];
 	}
+	init();
+}
 
 	onMount(() => {
 		init();
@@ -273,18 +325,31 @@
 									>{$i18n.t('URL')}</label
 								>
 
-								<div class="flex-1">
-									<input
-										id="url-input"
-										class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
-										type="text"
-										bind:value={url}
-										placeholder={$i18n.t('API Base URL')}
-										autocomplete="off"
-										required
-									/>
-								</div>
-							</div>
+					<div class="flex-1">
+						{#if !ollama && allowedUrls.length > 0}
+							<select
+								id="url-input"
+								class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
+								bind:value={url}
+								required
+							>
+								{#each allowedUrls as allowedUrl}
+									<option value={allowedUrl}>{allowedUrl}</option>
+								{/each}
+							</select>
+						{:else}
+							<input
+								id="url-input"
+								class={`w-full text-sm bg-transparent ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
+								type="text"
+								bind:value={url}
+								placeholder={$i18n.t('API Base URL')}
+								autocomplete="off"
+								required
+							/>
+						{/if}
+					</div>
+				</div>
 
 							<Tooltip content={$i18n.t('Verify Connection')} className="self-end -mb-1">
 								<button
@@ -329,8 +394,8 @@
 									>{$i18n.t('Auth')}</label
 								>
 
-								<div class="flex gap-2">
-									<div class="flex-shrink-0 self-start">
+					<div class="flex gap-2">
+						<div class="flex-shrink-0 self-start">
 										<select
 											id="select-bearer-or-session"
 											class={`w-full text-sm bg-transparent pr-5 ${($settings?.highContrastMode ?? false) ? 'placeholder:text-gray-700 dark:placeholder:text-gray-100' : 'outline-hidden placeholder:text-gray-300 dark:placeholder:text-gray-700'}`}
@@ -351,18 +416,44 @@
 										</select>
 									</div>
 
-									<div class="flex flex-1 items-center">
-										{#if auth_type === 'bearer'}
-											<SensitiveInput
-												bind:value={key}
-												placeholder={$i18n.t('API Key')}
-												required={false}
-											/>
-										{:else if auth_type === 'none'}
-											<div
-												class={`text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+						<div class="flex flex-1 items-center">
+							{#if auth_type === 'bearer'}
+								<div class="flex items-center gap-2 w-full">
+									<SensitiveInput
+										bind:value={key}
+										placeholder={maskedKey ? maskedKey : $i18n.t('API Key')}
+										required={false}
+										on:change={() => {
+											keyChanged = true;
+											hasStoredKey = false;
+										}}
+									/>
+									{#if hasStoredKey && !keyChanged}
+										<Tooltip content={$i18n.t('Remove stored key')}>
+											<button
+												type="button"
+												class="p-1 bg-transparent hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-850 rounded-lg transition"
+												on:click={() => {
+													clearStoredKey();
+												}}
 											>
-												{$i18n.t('No authentication')}
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													viewBox="0 0 20 20"
+													fill="currentColor"
+													class="w-4 h-4"
+												>
+													<path d="M6 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2h3a1 1 0 1 1 0 2h-.278l-1.11 12.21A2 2 0 0 1 13.618 20H6.382a2 2 0 0 1-1.994-1.79L3.278 6H3a1 1 0 1 1 0-2h3Zm2.118 0a.118.118 0 0 0-.118.118L8 4h4l-.001-.118A.118.118 0 0 0 11.882 4H8.118ZM7.995 8a1 1 0 0 1 1 .924l.5 6a1 1 0 1 1-1.992.152l-.5-6A1 1 0 0 1 7.995 8Zm4.01 0a1 1 0 0 1 1.076.924l-.5 6a1 1 0 1 1-1.992-.152l.5-6A1 1 0 0 1 12.005 8Z" />
+												</svg>
+											</button>
+										</Tooltip>
+									{/if}
+								</div>
+							{:else if auth_type === 'none'}
+								<div
+									class={`text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+								>
+									{$i18n.t('No authentication')}
 											</div>
 										{:else if auth_type === 'session'}
 											<div
