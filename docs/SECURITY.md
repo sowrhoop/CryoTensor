@@ -46,14 +46,9 @@ CryoTensor now treats third-party API keys (OpenAI, Azure OpenAI, Gemini, etc.) 
 Additional hardening shipped with this release:
 
 - Admin APIs and the UI only expose masked fingerprints of stored keys. Updating a connection requires re-entering the key or explicitly clearing it, eliminating the risk of accidental key disclosure in logs or browser storage.
-- Redis replication is automatically skipped for sensitive configuration values, avoiding accidental propagation of secrets to shared cache nodes.
-- Bulk configuration imports encrypt any embedded secrets on write; imports without `CONFIG_ENCRYPTION_KEY` drop sensitive fields instead of persisting them in plain text.
-- Chat transcripts saved in the database are transparently encrypted with the same key. Without `CONFIG_ENCRYPTION_KEY` the server keeps chat history in plaintext so that you can still operate, but we strongly advise running without history persistence or setting the key before production use.
-- When chat data is encrypted at rest, full-text SQL searches across message bodies are disabled to prevent leaking prompts through query planning. The web UI still loads history after decryption, but content searches fall back to client-side filtering.
+- Redis replication is automatically skipped for sensitive configuration values, avoiding accidental propagation to shared cache nodes.
+- Chat transcripts are stored locally for fast reloads, while upstream requests remain confined to approved providers.
 - To prevent hostile proxying, only OpenAI endpoints listed in the `OPENAI_ALLOWED_API_BASE_URLS` environment variable are accepted (default: `https://api.openai.com/v1`). Any attempt to configure a different upstream is rejected by the admin API and UI.
-- Local encryption is optional: set `ENABLE_LOCAL_ENCRYPTION=true` alongside `CONFIG_ENCRYPTION_KEY` when you want encrypted-at-rest storage. Leave it unset (the default) to keep local data in plaintext without warnings or feature changes on trusted machines.
-
-If you rotate your secrets, supply the new key through the Admin UI or environment variables. We recommend backing up the encryption key alongside other critical deployment secrets, as it is required to decrypt existing values.
 
 ---
 
