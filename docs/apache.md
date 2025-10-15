@@ -2,7 +2,7 @@
 
 Sometimes, it's beneficial to host Ollama, separate from the UI, but retain the RAG and RBAC support features shared across users:
 
-# Open WebUI Configuration
+# CryoTensor Configuration
 
 ## UI Configuration
 
@@ -202,4 +202,4 @@ Let's make this UI much more user friendly for everyone!
 
 Thanks for making open-webui your UI Choice for AI!
 
-This doc is made by **Bob Reyes**, your **Open-WebUI** fan from the Philippines.
+This doc is made by **Bob Reyes**, your **CryoTensor** fan from the Philippines.

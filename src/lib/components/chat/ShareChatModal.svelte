@@ -158,7 +158,7 @@
 										show = false;
 									}}
 								>
-									{$i18n.t('Share to Open WebUI Community')}
+									{$i18n.t('Share to CryoTensor Community')}
 								</button>
 							{/if}
 

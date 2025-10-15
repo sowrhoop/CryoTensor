@@ -47,10 +47,10 @@ class ExternalReranker(BaseReranker):
                     "Authorization": f"Bearer {self.api_key}",
                     **(
                         {
-                            "X-OpenWebUI-User-Name": quote(user.name, safe=" "),
-                            "X-OpenWebUI-User-Id": user.id,
-                            "X-OpenWebUI-User-Email": user.email,
-                            "X-OpenWebUI-User-Role": user.role,
+                            "X-CryoTensor-User-Name": quote(user.name, safe=" "),
+                            "X-CryoTensor-User-Id": user.id,
+                            "X-CryoTensor-User-Email": user.email,
+                            "X-CryoTensor-User-Role": user.role,
                         }
                         if ENABLE_FORWARD_USER_INFO_HEADERS and user
                         else {}

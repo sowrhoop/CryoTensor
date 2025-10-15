@@ -431,7 +431,7 @@ const resolveCommunityShareTarget = (path: string) => {
 					}}
 				>
 					<div class=" self-center mr-2 font-medium line-clamp-1">
-						{$i18n.t('Share to Open WebUI Community')}
+						{$i18n.t('Share to CryoTensor Community')}
 					</div>
 
 					<div class=" self-center">
