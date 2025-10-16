@@ -261,11 +261,6 @@ type Config = {
 		enable_message_rating?: boolean;
 		enable_user_webhooks?: boolean;
 	};
-	oauth: {
-		providers: {
-			[key: string]: string;
-		};
-	};
 	ui?: {
 		pending_user_overlay_title?: string;
 		pending_user_overlay_description?: string;

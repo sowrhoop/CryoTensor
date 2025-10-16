@@ -6,7 +6,6 @@
 
 	import { config, user, tools as _tools, mobile, settings, toolServers } from '$lib/stores';
 
-	import { getOAuthClientAuthorizationUrl } from '$lib/apis/configs';
 	import { getTools } from '$lib/apis/tools';
 
 	import Knobs from '$lib/components/icons/Knobs.svelte';
@@ -330,24 +329,10 @@
 					{#each Object.keys(tools) as toolId}
 						<button
 							class="relative flex w-full justify-between gap-2 items-center px-3 py-1.5 text-sm cursor-pointer rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50"
-							on:click={(e) => {
-								if (!(tools[toolId]?.authenticated ?? true)) {
-									e.preventDefault();
-
-									let parts = toolId.split(':');
-									let serverId = parts?.at(-1) ?? toolId;
-
-									const authUrl = getOAuthClientAuthorizationUrl(serverId, 'mcp');
-									window.open(authUrl, '_blank', 'noopener');
-								} else {
-									tools[toolId].enabled = !tools[toolId].enabled;
-								}
+							on:click={() => {
+								tools[toolId].enabled = !tools[toolId].enabled;
 							}}
 						>
-							{#if !(tools[toolId]?.authenticated ?? true)}
-								<!-- make it slighly darker and not clickable -->
-								<div class="absolute inset-0 opacity-50 rounded-xl cursor-pointer z-10" />
-							{/if}
 							<div class="flex-1 truncate">
 								<div class="flex flex-1 gap-2 items-center">
 									<Tooltip content={tools[toolId]?.name ?? ''} placement="top">

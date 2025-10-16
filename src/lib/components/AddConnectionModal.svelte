@@ -149,7 +149,7 @@ const clearStoredKey = () => {
 				return;
 			}
 
-			if (!key && !hasStoredKey && !['azure_ad', 'microsoft_entra_id'].includes(auth_type)) {
+			if (!key && !hasStoredKey && auth_type === 'bearer') {
 				loading = false;
 
 				toast.error($i18n.t('Key is required'));
@@ -220,7 +220,10 @@ const clearStoredKey = () => {
 				key = '';
 			}
 
-			auth_type = connConfig.auth_type ?? 'bearer';
+		auth_type = connConfig.auth_type ?? 'bearer';
+		if (!['bearer', 'none', 'session'].includes(auth_type)) {
+			auth_type = 'bearer';
+		}
 
 			enable = connConfig?.enable ?? true;
 			tags = connConfig?.tags ?? [];
@@ -403,77 +406,58 @@ $: if (show) {
 										>
 											<option value="none">{$i18n.t('None')}</option>
 											<option value="bearer">{$i18n.t('Bearer')}</option>
-
 											{#if !ollama}
 												<option value="session">{$i18n.t('Session')}</option>
-												{#if !direct}
-													<option value="system_oauth">{$i18n.t('OAuth')}</option>
-													{#if azure}
-														<option value="microsoft_entra_id">{$i18n.t('Entra ID')}</option>
-													{/if}
-												{/if}
 											{/if}
 										</select>
 									</div>
 
 						<div class="flex flex-1 items-center">
-							{#if auth_type === 'bearer'}
-								<div class="flex items-center gap-2 w-full">
-									<SensitiveInput
-										bind:value={key}
-										placeholder={maskedKey ? maskedKey : $i18n.t('API Key')}
-										required={false}
-										on:change={() => {
-											keyChanged = true;
-											hasStoredKey = false;
-										}}
-									/>
-									{#if hasStoredKey && !keyChanged}
-										<Tooltip content={$i18n.t('Remove stored key')}>
-											<button
-												type="button"
-												class="p-1 bg-transparent hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-850 rounded-lg transition"
-												on:click={() => {
-													clearStoredKey();
-												}}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 20 20"
-													fill="currentColor"
-													class="w-4 h-4"
-												>
-													<path d="M6 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2h3a1 1 0 1 1 0 2h-.278l-1.11 12.21A2 2 0 0 1 13.618 20H6.382a2 2 0 0 1-1.994-1.79L3.278 6H3a1 1 0 1 1 0-2h3Zm2.118 0a.118.118 0 0 0-.118.118L8 4h4l-.001-.118A.118.118 0 0 0 11.882 4H8.118ZM7.995 8a1 1 0 0 1 1 .924l.5 6a1 1 0 1 1-1.992.152l-.5-6A1 1 0 0 1 7.995 8Zm4.01 0a1 1 0 0 1 1.076.924l-.5 6a1 1 0 1 1-1.992-.152l.5-6A1 1 0 0 1 12.005 8Z" />
-												</svg>
-											</button>
-										</Tooltip>
-									{/if}
-								</div>
-							{:else if auth_type === 'none'}
-								<div
-									class={`text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+				{#if auth_type === 'bearer'}
+					<div class="flex items-center gap-2 w-full">
+						<SensitiveInput
+							bind:value={key}
+							placeholder={maskedKey ? maskedKey : $i18n.t('API Key')}
+							required={false}
+							on:change={() => {
+								keyChanged = true;
+								hasStoredKey = false;
+							}}
+						/>
+						{#if hasStoredKey && !keyChanged}
+							<Tooltip content={$i18n.t('Remove stored key')}>
+								<button
+									type="button"
+									class="p-1 bg-transparent hover:bg-gray-100 dark:bg-gray-900 dark:hover:bg-gray-850 rounded-lg transition"
+									on:click={() => {
+										clearStoredKey();
+									}}
 								>
-									{$i18n.t('No authentication')}
-											</div>
-										{:else if auth_type === 'session'}
-											<div
-												class={`text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
-											>
-												{$i18n.t('Forwards system user session credentials to authenticate')}
-											</div>
-										{:else if auth_type === 'system_oauth'}
-											<div
-												class={`text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
-											>
-												{$i18n.t('Forwards system user OAuth access token to authenticate')}
-											</div>
-										{:else if ['azure_ad', 'microsoft_entra_id'].includes(auth_type)}
-											<div
-												class={`text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
-											>
-												{$i18n.t('Uses DefaultAzureCredential to authenticate')}
-											</div>
-										{/if}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										viewBox="0 0 20 20"
+										fill="currentColor"
+										class="w-4 h-4"
+									>
+										<path d="M6 4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2h3a1 1 0 1 1 0 2h-.278l-1.11 12.21A2 2 0 0 1 13.618 20H6.382a2 2 0 0 1-1.994-1.79L3.278 6H3a1 1 0 1 1 0-2h3Zm2.118 0a.118.118 0 0 0-.118.118L8 4h4l-.001-.118A.118.118 0 0 0 11.882 4H8.118ZM7.995 8a1 1 0 0 1 1 .924l.5 6a1 1 0 1 1-1.992.152l-.5-6A1 1 0 0 1 7.995 8Zm4.01 0a1 1 0 0 1 1.076.924l-.5 6a1 1 0 1 1-1.992-.152l.5-6A1 1 0 0 1 12.005 8Z" />
+									</svg>
+								</button>
+							</Tooltip>
+						{/if}
+					</div>
+				{:else if auth_type === 'none'}
+					<div
+						class={`text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+					>
+						{$i18n.t('No authentication')}
+					</div>
+				{:else if auth_type === 'session'}
+					<div
+						class={`text-xs self-center translate-y-[1px] ${($settings?.highContrastMode ?? false) ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500'}`}
+					>
+						{$i18n.t('Forwards system user session credentials to authenticate')}
+					</div>
+				{/if}
 									</div>
 								</div>
 							</div>

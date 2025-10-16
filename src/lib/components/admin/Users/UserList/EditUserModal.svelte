@@ -172,16 +172,6 @@
 										</div>
 									</div>
 
-									{#if _user?.oauth_sub}
-										<div class="flex flex-col w-full">
-											<div class=" mb-1 text-xs text-gray-500">{$i18n.t('OAuth ID')}</div>
-
-											<div class="flex-1 text-sm break-all mb-1">
-												{_user.oauth_sub ?? ''}
-											</div>
-										</div>
-									{/if}
-
 									<div class="flex flex-col w-full">
 										<div class=" mb-1 text-xs text-gray-500">{$i18n.t('New Password')}</div>
 
