@@ -1,15 +1,5 @@
 # CryoTensor 👋
 
-![GitHub stars](https://img.shields.io/github/stars/open-webui/open-webui?style=social)
-![GitHub forks](https://img.shields.io/github/forks/open-webui/open-webui?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/open-webui/open-webui?style=social)
-![GitHub repo size](https://img.shields.io/github/repo-size/open-webui/open-webui)
-![GitHub language count](https://img.shields.io/github/languages/count/open-webui/open-webui)
-![GitHub top language](https://img.shields.io/github/languages/top/open-webui/open-webui)
-![GitHub last commit](https://img.shields.io/github/last-commit/open-webui/open-webui?color=red)
-[![Discord](https://img.shields.io/badge/Discord-Open_WebUI-blue?logo=discord&logoColor=white)](https://discord.gg/5rJgQTnV4s)
-[![](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/tjbck)
-
 **CryoTensor is an [extensible](https://docs.openwebui.com/features/plugin/), feature-rich, and user-friendly self-hosted AI platform designed to operate entirely offline.** It supports various LLM runners like **Ollama** and **OpenAI-compatible APIs**, with **built-in inference engine** for RAG, making it a **powerful AI deployment solution**.
 
 Passionate about open-source AI? [Join our team →](https://careers.openwebui.com/)
@@ -64,47 +54,6 @@ For more information, be sure to check out our [CryoTensor Documentation](https:
 - 🌟 **Continuous Updates**: We are committed to improving CryoTensor with regular updates, fixes, and new features.
 
 Want to learn more about CryoTensor's features? Check out our [CryoTensor documentation](https://docs.openwebui.com/features) for a comprehensive overview!
-
-## Sponsors 🙌
-
-#### Emerald
-
-<table>
-  <!-- <tr>
-    <td>
-      <a href="https://n8n.io/" target="_blank">
-        <img src="https://docs.openwebui.com/sponsors/logos/n8n.png" alt="n8n" style="width: 8rem; height: 8rem; border-radius: .75rem;" />
-      </a>
-    </td>
-    <td>
-      <a href="https://n8n.io/">n8n</a> • Does your interface have a backend yet?<br>Try <a href="https://n8n.io/">n8n</a>
-    </td>
-  </tr> -->
-  <tr>
-    <td>
-      <a href="https://tailscale.com/blog/self-host-a-local-ai-stack/?utm_source=CryoTensor&utm_medium=paid-ad-placement&utm_campaign=CryoTensor-Docs" target="_blank">
-        <img src="https://docs.openwebui.com/sponsors/logos/tailscale.png" alt="Tailscale" style="width: 8rem; height: 8rem; border-radius: .75rem;" />
-      </a>
-    </td>
-    <td>
-      <a href="https://tailscale.com/blog/self-host-a-local-ai-stack/?utm_source=CryoTensor&utm_medium=paid-ad-placement&utm_campaign=CryoTensor-Docs">Tailscale</a> • Connect self-hosted AI to any device with Tailscale
-    </td>
-  </tr>
-   <tr>
-    <td>
-      <a href="https://warp.dev/open-webui" target="_blank">
-        <img src="https://docs.openwebui.com/sponsors/logos/warp.png" alt="Warp" style="width: 8rem; height: 8rem; border-radius: .75rem;" />
-      </a>
-    </td>
-    <td>
-      <a href="https://warp.dev/open-webui">Warp</a> • The intelligent terminal for developers
-    </td>
-  </tr>
-</table>
-
----
-
-We are incredibly grateful for the generous support of our sponsors. Their contributions help us to maintain and improve our project, ensuring we can continue to deliver quality work to our community. Thank you!
 
 ## How to Install 🚀
 

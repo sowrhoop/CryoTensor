@@ -1,21 +1,13 @@
 <script>
 	import { toast } from 'svelte-sonner';
-	import dayjs from 'dayjs';
-	import relativeTime from 'dayjs/plugin/relativeTime';
-	dayjs.extend(relativeTime);
-
 	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	import { WEBUI_NAME, config, user, showSidebar, knowledge } from '$lib/stores';
-	import { WEBUI_BASE_URL } from '$lib/constants';
-
+	import { user } from '$lib/stores';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Plus from '$lib/components/icons/Plus.svelte';
-	import Badge from '$lib/components/common/Badge.svelte';
 	import UsersSolid from '$lib/components/icons/UsersSolid.svelte';
 	import ChevronRight from '$lib/components/icons/ChevronRight.svelte';
-	import EllipsisHorizontal from '$lib/components/icons/EllipsisHorizontal.svelte';
 	import Search from '$lib/components/icons/Search.svelte';
 	import User from '$lib/components/icons/User.svelte';
 	import UserCircleSolid from '$lib/components/icons/UserCircleSolid.svelte';
@@ -34,8 +26,6 @@
 	let loaded = false;
 
 	let users = [];
-	let total = 0;
-
 	let groups = [];
 	let filteredGroups;
 
@@ -72,11 +62,11 @@
 			return null;
 		});
 
-		if (res) {
-			toast.success($i18n.t('Group created successfully'));
-			groups = await getGroups(localStorage.token);
-		}
-	};
+	if (res) {
+		toast.success($i18n.t('Group created successfully'));
+		await setGroups();
+	}
+};
 
 	const updateDefaultPermissionsHandler = async (group) => {
 		console.debug(group.permissions);
@@ -107,7 +97,6 @@
 
 		if (res) {
 			users = res.users;
-			total = res.total;
 		}
 
 		await setGroups();
