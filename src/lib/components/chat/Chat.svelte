@@ -3,14 +3,13 @@
 	import { toast } from 'svelte-sonner';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 
-	import { getContext, onDestroy, onMount, tick } from 'svelte';
-	const i18n: Writable<i18nType> = getContext('i18n');
+import { goto } from '$app/navigation';
+import { page } from '$app/stores';
 
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-
-	import { get, type Unsubscriber, type Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+import { getContext, onDestroy, onMount, tick } from 'svelte';
+import { get, type Unsubscriber, type Writable } from 'svelte/store';
+import type { Translator } from '$lib/i18n';
+const i18n: Writable<Translator> = getContext('i18n');
 	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	import {

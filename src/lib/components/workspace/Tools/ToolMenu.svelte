@@ -3,22 +3,16 @@
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { getContext } from 'svelte';
 
-	import Dropdown from '$lib/components/common/Dropdown.svelte';
-	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
-	import Pencil from '$lib/components/icons/Pencil.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Tags from '$lib/components/chat/Tags.svelte';
-	import Share from '$lib/components/icons/Share.svelte';
-	import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
-	import DocumentDuplicate from '$lib/components/icons/DocumentDuplicate.svelte';
-	import Download from '$lib/components/icons/Download.svelte';
-	import { config } from '$lib/stores';
+import Dropdown from '$lib/components/common/Dropdown.svelte';
+import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
+import Tooltip from '$lib/components/common/Tooltip.svelte';
+import DocumentDuplicate from '$lib/components/icons/DocumentDuplicate.svelte';
+import Download from '$lib/components/icons/Download.svelte';
 
 	const i18n = getContext('i18n');
 
-	export let editHandler: Function;
-	export let shareHandler: Function;
-	export let cloneHandler: Function;
+export let editHandler: Function;
+export let cloneHandler: Function;
 	export let exportHandler: Function;
 	export let deleteHandler: Function;
 	export let onClose: Function;

@@ -2,12 +2,12 @@
 	import { toast } from 'svelte-sonner';
 	import dayjs from 'dayjs';
 
-	import { createEventDispatcher } from 'svelte';
-	import { onMount, tick, getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType, t } from 'i18next';
+import { createEventDispatcher } from 'svelte';
+import { onMount, tick, getContext } from 'svelte';
+import type { Writable } from 'svelte/store';
+import type { Translator } from '$lib/i18n';
 
-	const i18n = getContext<Writable<i18nType>>('i18n');
+const i18n = getContext<Writable<Translator>>('i18n');
 
 	const dispatch = createEventDispatcher();
 

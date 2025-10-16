@@ -3,7 +3,6 @@
 	const i18n = getContext('i18n');
 	import WebSearchResults from '../WebSearchResults.svelte';
 	import Search from '$lib/components/icons/Search.svelte';
-	import { t } from 'i18next';
 
 	export let status = null;
 	export let done = false;

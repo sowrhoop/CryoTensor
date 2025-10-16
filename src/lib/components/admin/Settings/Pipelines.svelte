@@ -4,8 +4,8 @@
 	import { toast } from 'svelte-sonner';
 	import { config, models, settings } from '$lib/stores';
 	import { getContext, onMount, tick } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+import type { Writable } from 'svelte/store';
+import type { Translator } from '$lib/i18n';
 	import {
 		getPipelineValves,
 		getPipelineValvesSpec,
@@ -21,7 +21,7 @@
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import Switch from '$lib/components/common/Switch.svelte';
 
-	const i18n: Writable<i18nType> = getContext('i18n');
+const i18n: Writable<Translator> = getContext('i18n');
 
 	export let saveHandler: Function;
 

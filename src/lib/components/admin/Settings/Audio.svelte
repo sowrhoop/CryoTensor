@@ -17,10 +17,10 @@
 
 	import { TTS_RESPONSE_SPLIT } from '$lib/types';
 
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
+import type { Writable } from 'svelte/store';
+import type { Translator } from '$lib/i18n';
 
-	const i18n = getContext<Writable<i18nType>>('i18n');
+const i18n = getContext<Writable<Translator>>('i18n');
 
 	export let saveHandler: () => void;
 
