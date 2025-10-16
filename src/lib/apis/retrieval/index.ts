@@ -51,8 +51,6 @@ type YoutubeConfigForm = {
 
 type RAGConfigForm = {
 	PDF_EXTRACT_IMAGES?: boolean;
-	ENABLE_GOOGLE_DRIVE_INTEGRATION?: boolean;
-	ENABLE_ONEDRIVE_INTEGRATION?: boolean;
 	chunk?: ChunkConfigForm;
 	content_extraction?: ContentExtractConfigForm;
 	web_loader_ssl_verification?: boolean;

@@ -304,19 +304,9 @@ from open_webui.config import (
     BOCHA_SEARCH_API_KEY,
     GOOGLE_PSE_API_KEY,
     GOOGLE_PSE_ENGINE_ID,
-    GOOGLE_DRIVE_CLIENT_ID,
-    GOOGLE_DRIVE_API_KEY,
-    ENABLE_ONEDRIVE_INTEGRATION,
-    ONEDRIVE_CLIENT_ID_PERSONAL,
-    ONEDRIVE_CLIENT_ID_BUSINESS,
-    ONEDRIVE_SHAREPOINT_URL,
-    ONEDRIVE_SHAREPOINT_TENANT_ID,
-    ENABLE_ONEDRIVE_PERSONAL,
-    ENABLE_ONEDRIVE_BUSINESS,
     ENABLE_RAG_HYBRID_SEARCH,
     ENABLE_RAG_LOCAL_WEB_FETCH,
     ENABLE_WEB_LOADER_SSL_VERIFICATION,
-    ENABLE_GOOGLE_DRIVE_INTEGRATION,
     UPLOAD_DIR,
     EXTERNAL_WEB_SEARCH_URL,
     EXTERNAL_WEB_SEARCH_API_KEY,
@@ -883,8 +873,6 @@ app.state.config.BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL = (
 )
 app.state.config.BYPASS_WEB_SEARCH_WEB_LOADER = BYPASS_WEB_SEARCH_WEB_LOADER
 
-app.state.config.ENABLE_GOOGLE_DRIVE_INTEGRATION = ENABLE_GOOGLE_DRIVE_INTEGRATION
-app.state.config.ENABLE_ONEDRIVE_INTEGRATION = ENABLE_ONEDRIVE_INTEGRATION
 
 app.state.config.OLLAMA_CLOUD_WEB_SEARCH_API_KEY = OLLAMA_CLOUD_WEB_SEARCH_API_KEY
 app.state.config.SEARXNG_QUERY_URL = SEARXNG_QUERY_URL
@@ -1701,16 +1689,6 @@ async def get_app_config(request: Request):
                     "enable_user_webhooks": app.state.config.ENABLE_USER_WEBHOOKS,
                     "enable_admin_export": ENABLE_ADMIN_EXPORT,
                     "enable_admin_chat_access": ENABLE_ADMIN_CHAT_ACCESS,
-                    "enable_google_drive_integration": app.state.config.ENABLE_GOOGLE_DRIVE_INTEGRATION,
-                    "enable_onedrive_integration": app.state.config.ENABLE_ONEDRIVE_INTEGRATION,
-                    **(
-                        {
-                            "enable_onedrive_personal": ENABLE_ONEDRIVE_PERSONAL,
-                            "enable_onedrive_business": ENABLE_ONEDRIVE_BUSINESS,
-                        }
-                        if app.state.config.ENABLE_ONEDRIVE_INTEGRATION
-                        else {}
-                    ),
                 }
                 if user is not None
                 else {}
@@ -1743,16 +1721,6 @@ async def get_app_config(request: Request):
                     },
                 },
                 "permissions": {**app.state.config.USER_PERMISSIONS},
-                "google_drive": {
-                    "client_id": GOOGLE_DRIVE_CLIENT_ID.value,
-                    "api_key": GOOGLE_DRIVE_API_KEY.value,
-                },
-                "onedrive": {
-                    "client_id_personal": ONEDRIVE_CLIENT_ID_PERSONAL,
-                    "client_id_business": ONEDRIVE_CLIENT_ID_BUSINESS,
-                    "sharepoint_url": ONEDRIVE_SHAREPOINT_URL.value,
-                    "sharepoint_tenant_id": ONEDRIVE_SHAREPOINT_TENANT_ID.value,
-                },
                 "ui": {
                     "pending_user_overlay_title": app.state.config.PENDING_USER_OVERLAY_TITLE,
                     "pending_user_overlay_content": app.state.config.PENDING_USER_OVERLAY_CONTENT,

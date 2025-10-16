@@ -5,8 +5,6 @@
 	import { toast } from 'svelte-sonner';
 
 	import { v4 as uuidv4 } from 'uuid';
-	import { createPicker, getAuthToken } from '$lib/utils/google-drive-picker';
-	import { pickAndDownloadFile } from '$lib/utils/onedrive-file-picker';
 
 	import { onMount, tick, getContext, createEventDispatcher, onDestroy } from 'svelte';
 	const dispatch = createEventDispatcher();
@@ -1396,47 +1394,11 @@
 											uploadFilesHandler={() => {
 												filesInputElement.click();
 											}}
-											uploadGoogleDriveHandler={async () => {
-												try {
-													const fileData = await createPicker();
-													if (fileData) {
-														const file = new File([fileData.blob], fileData.name, {
-															type: fileData.blob.type
-														});
-														await uploadFileHandler(file);
-													} else {
-														console.log('No file was selected from Google Drive');
-													}
-												} catch (error) {
-													console.error('Google Drive Error:', error);
-													toast.error(
-														$i18n.t('Error accessing Google Drive: {{error}}', {
-															error: error.message
-														})
-													);
-												}
-											}}
-											uploadOneDriveHandler={async (authorityType) => {
-												try {
-													const fileData = await pickAndDownloadFile(authorityType);
-													if (fileData) {
-														const file = new File([fileData.blob], fileData.name, {
-															type: fileData.blob.type || 'application/octet-stream'
-														});
-														await uploadFileHandler(file);
-													} else {
-														console.log('No file was selected from OneDrive');
-													}
-												} catch (error) {
-													console.error('OneDrive Error:', error);
-												}
-											}}
 											onUpload={async (e) => {
 												dispatch('upload', e);
 											}}
 											onClose={async () => {
 												await tick();
-
 												const chatInput = document.getElementById('chat-input');
 												chatInput?.focus();
 											}}

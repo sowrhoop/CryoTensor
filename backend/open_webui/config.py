@@ -2294,59 +2294,6 @@ S3_VECTOR_REGION = os.environ.get("S3_VECTOR_REGION", None)
 ####################################
 
 
-# If configured, Google Drive will be available as an upload option.
-ENABLE_GOOGLE_DRIVE_INTEGRATION = PersistentConfig(
-    "ENABLE_GOOGLE_DRIVE_INTEGRATION",
-    "google_drive.enable",
-    os.getenv("ENABLE_GOOGLE_DRIVE_INTEGRATION", "False").lower() == "true",
-)
-
-GOOGLE_DRIVE_CLIENT_ID = PersistentConfig(
-    "GOOGLE_DRIVE_CLIENT_ID",
-    "google_drive.client_id",
-    os.environ.get("GOOGLE_DRIVE_CLIENT_ID", ""),
-)
-
-GOOGLE_DRIVE_API_KEY = PersistentConfig(
-    "GOOGLE_DRIVE_API_KEY",
-    "google_drive.api_key",
-    os.environ.get("GOOGLE_DRIVE_API_KEY", ""),
-)
-
-ENABLE_ONEDRIVE_INTEGRATION = PersistentConfig(
-    "ENABLE_ONEDRIVE_INTEGRATION",
-    "onedrive.enable",
-    os.getenv("ENABLE_ONEDRIVE_INTEGRATION", "False").lower() == "true",
-)
-
-
-ENABLE_ONEDRIVE_PERSONAL = (
-    os.environ.get("ENABLE_ONEDRIVE_PERSONAL", "True").lower() == "true"
-)
-ENABLE_ONEDRIVE_BUSINESS = (
-    os.environ.get("ENABLE_ONEDRIVE_BUSINESS", "True").lower() == "true"
-)
-
-ONEDRIVE_CLIENT_ID = os.environ.get("ONEDRIVE_CLIENT_ID", "")
-ONEDRIVE_CLIENT_ID_PERSONAL = os.environ.get(
-    "ONEDRIVE_CLIENT_ID_PERSONAL", ONEDRIVE_CLIENT_ID
-)
-ONEDRIVE_CLIENT_ID_BUSINESS = os.environ.get(
-    "ONEDRIVE_CLIENT_ID_BUSINESS", ONEDRIVE_CLIENT_ID
-)
-
-ONEDRIVE_SHAREPOINT_URL = PersistentConfig(
-    "ONEDRIVE_SHAREPOINT_URL",
-    "onedrive.sharepoint_url",
-    os.environ.get("ONEDRIVE_SHAREPOINT_URL", ""),
-)
-
-ONEDRIVE_SHAREPOINT_TENANT_ID = PersistentConfig(
-    "ONEDRIVE_SHAREPOINT_TENANT_ID",
-    "onedrive.sharepoint_tenant_id",
-    os.environ.get("ONEDRIVE_SHAREPOINT_TENANT_ID", ""),
-)
-
 # RAG Content Extraction
 CONTENT_EXTRACTION_ENGINE = PersistentConfig(
     "CONTENT_EXTRACTION_ENGINE",
