@@ -10,7 +10,6 @@ from pydantic import BaseModel
 
 
 from open_webui.models.auths import Auths
-from open_webui.models.oauth_sessions import OAuthSessions
 
 from open_webui.models.groups import Groups
 from open_webui.models.chats import Chats
@@ -359,20 +358,6 @@ async def get_user_by_id(user_id: str, user=Depends(get_verified_user)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ERROR_MESSAGES.USER_NOT_FOUND,
         )
-
-
-@router.get("/{user_id}/oauth/sessions", response_model=Optional[dict])
-async def get_user_oauth_sessions_by_id(user_id: str, user=Depends(get_admin_user)):
-    sessions = OAuthSessions.get_sessions_by_user_id(user_id)
-    if sessions and len(sessions) > 0:
-        return sessions
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ERROR_MESSAGES.USER_NOT_FOUND,
-        )
-
-
 ############################
 # GetUserProfileImageById
 ############################

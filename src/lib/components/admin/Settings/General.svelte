@@ -1,7 +1,7 @@
 <script lang="ts">
 	import DOMPurify from 'dompurify';
 
-	import { getVersionUpdates, getWebhookUrl, updateWebhookUrl } from '$lib/apis';
+	import { getWebhookUrl, updateWebhookUrl } from '$lib/apis';
 	import {
 		getAdminConfig,
 		getLdapConfig,
@@ -15,7 +15,6 @@
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import { WEBUI_BUILD_HASH, WEBUI_VERSION } from '$lib/constants';
 	import { config, showChangelog } from '$lib/stores';
-	import { compareVersion } from '$lib/utils';
 	import { onMount, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import Textarea from '$lib/components/common/Textarea.svelte';
@@ -23,12 +22,6 @@
 	const i18n = getContext('i18n');
 
 	export let saveHandler: Function;
-
-	let updateAvailable = null;
-	let version = {
-		current: '',
-		latest: ''
-	};
 
 	let adminConfig = null;
 	let webhookUrl = '';
@@ -48,21 +41,6 @@
 		use_tls: false,
 		certificate_path: '',
 		ciphers: ''
-	};
-
-	const checkForVersionUpdates = async () => {
-		updateAvailable = null;
-		version = await getVersionUpdates(localStorage.token).catch((error) => {
-			return {
-				current: WEBUI_VERSION,
-				latest: WEBUI_VERSION
-			};
-		});
-
-		console.info(version);
-
-		updateAvailable = compareVersion(version.latest, version.current);
-		console.info(updateAvailable);
 	};
 
 	const updateLdapServerHandler = async () => {
@@ -90,10 +68,6 @@
 	};
 
 	onMount(async () => {
-		if ($config?.features?.enable_version_update_check) {
-			checkForVersionUpdates();
-		}
-
 		await Promise.all([
 			(async () => {
 				adminConfig = await getAdminConfig(localStorage.token);
@@ -134,24 +108,11 @@
 						</div>
 						<div class="flex w-full justify-between items-center">
 							<div class="flex flex-col text-xs text-gray-700 dark:text-gray-200">
-								<div class="flex gap-1">
-									<Tooltip content={WEBUI_BUILD_HASH}>
-										v{WEBUI_VERSION}
-									</Tooltip>
-
-									{#if $config?.features?.enable_version_update_check}
-										<a
-											href="https://github.com/open-webui/open-webui/releases/tag/v{version.latest}"
-											target="_blank"
-										>
-											{updateAvailable === null
-												? $i18n.t('Checking for updates...')
-												: updateAvailable
-													? `(v${version.latest} ${$i18n.t('available!')})`
-													: $i18n.t('(latest)')}
-										</a>
-									{/if}
-								</div>
+					<div class="flex gap-1">
+						<Tooltip content={WEBUI_BUILD_HASH}>
+							v{WEBUI_VERSION}
+						</Tooltip>
+					</div>
 
 								<button
 									class=" underline flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-500"
@@ -164,17 +125,6 @@
 								</button>
 							</div>
 
-							{#if $config?.features?.enable_version_update_check}
-								<button
-									class=" text-xs px-3 py-1.5 bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 transition rounded-lg font-medium"
-									type="button"
-									on:click={() => {
-										checkForVersionUpdates();
-									}}
-								>
-									{$i18n.t('Check for updates')}
-								</button>
-							{/if}
 						</div>
 					</div>
 
@@ -621,15 +571,7 @@
 
 					<hr class=" border-gray-100 dark:border-gray-850 my-2" />
 
-					<div class="mb-2.5 flex w-full items-center justify-between pr-2">
-						<div class=" self-center text-xs font-medium">
-							{$i18n.t('Enable Community Sharing')}
-						</div>
-
-						<Switch bind:state={adminConfig.ENABLE_COMMUNITY_SHARING} />
-					</div>
-
-			<div class="mb-2.5 flex w-full items-center justify-between pr-2">
+	<div class="mb-2.5 flex w-full items-center justify-between pr-2">
 				<div class=" self-center text-xs font-medium">
 					{$i18n.t('Notes')} ({$i18n.t('Beta')})
 				</div>

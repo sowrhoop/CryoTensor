@@ -1581,18 +1581,6 @@ ENABLE_ADMIN_CHAT_ACCESS = (
     os.environ.get("ENABLE_ADMIN_CHAT_ACCESS", "True").lower() == "true"
 )
 
-ENABLE_COMMUNITY_SHARING = PersistentConfig(
-    "ENABLE_COMMUNITY_SHARING",
-    "ui.enable_community_sharing",
-    os.environ.get("ENABLE_COMMUNITY_SHARING", "False").lower() == "true",
-)
-
-COMMUNITY_SHARING_BASE_URL = PersistentConfig(
-    "COMMUNITY_SHARING_BASE_URL",
-    "ui.community_sharing_base_url",
-    os.environ.get("COMMUNITY_SHARING_BASE_URL", ""),
-)
-
 ENABLE_MESSAGE_RATING = PersistentConfig(
     "ENABLE_MESSAGE_RATING",
     "ui.enable_message_rating",

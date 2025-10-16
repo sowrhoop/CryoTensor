@@ -18,7 +18,6 @@ from sqlalchemy import text
 
 from typing import Optional
 from aiocache import cached
-import aiohttp
 import anyio.to_thread
 import requests
 from redis import Redis
@@ -326,8 +325,6 @@ from open_webui.config import (
     ENABLE_API_KEY_ENDPOINT_RESTRICTIONS,
     API_KEY_ALLOWED_ENDPOINTS,
     ENABLE_NOTES,
-    ENABLE_COMMUNITY_SHARING,
-    COMMUNITY_SHARING_BASE_URL,
     ENABLE_USER_WEBHOOKS,
     BYPASS_ADMIN_ACCESS_CONTROL,
     USER_PERMISSIONS,
@@ -338,33 +335,6 @@ from open_webui.config import (
     DEFAULT_MODELS,
     DEFAULT_ARENA_MODEL,
     MODEL_ORDER_LIST,
-    # WebUI (OAuth)
-    ENABLE_OAUTH_ROLE_MANAGEMENT,
-    OAUTH_ROLES_CLAIM,
-    OAUTH_EMAIL_CLAIM,
-    OAUTH_PICTURE_CLAIM,
-    OAUTH_USERNAME_CLAIM,
-    OAUTH_ALLOWED_ROLES,
-    OAUTH_ADMIN_ROLES,
-    # WebUI (LDAP)
-    ENABLE_LDAP,
-    LDAP_SERVER_LABEL,
-    LDAP_SERVER_HOST,
-    LDAP_SERVER_PORT,
-    LDAP_ATTRIBUTE_FOR_MAIL,
-    LDAP_ATTRIBUTE_FOR_USERNAME,
-    LDAP_SEARCH_FILTERS,
-    LDAP_SEARCH_BASE,
-    LDAP_APP_DN,
-    LDAP_APP_PASSWORD,
-    LDAP_USE_TLS,
-    LDAP_CA_CERT_FILE,
-    LDAP_VALIDATE_CERT,
-    LDAP_CIPHERS,
-    # LDAP Group Management
-    ENABLE_LDAP_GROUP_MANAGEMENT,
-    ENABLE_LDAP_GROUP_CREATION,
-    LDAP_ATTRIBUTE_FOR_GROUPS,
     # Misc
     ENV,
     CACHE_DIR,
@@ -372,7 +342,6 @@ from open_webui.config import (
     FRONTEND_BUILD_DIR,
     CORS_ALLOW_ORIGIN,
     DEFAULT_LOCALE,
-    OAUTH_PROVIDERS,
     WEBUI_URL,
     RESPONSE_WATERMARK,
     # Admin
@@ -427,8 +396,6 @@ from open_webui.env import (
     ENABLE_WEBSOCKET_SUPPORT,
     BYPASS_MODEL_ACCESS_CONTROL,
     RESET_CONFIG_ON_START,
-    ENABLE_VERSION_UPDATE_CHECK,
-    ENABLE_OTEL,
     EXTERNAL_PWA_MANIFEST_URL,
     AIOHTTP_CLIENT_SESSION_SSL,
 )
@@ -457,12 +424,6 @@ from open_webui.utils.auth import (
     get_verified_user,
 )
 from open_webui.utils.plugin import install_tool_and_function_dependencies
-from open_webui.utils.oauth import (
-    OAuthManager,
-    OAuthClientManager,
-    decrypt_data,
-    OAuthClientInformationFull,
-)
 from open_webui.utils.security_headers import SecurityHeadersMiddleware
 from open_webui.utils.redis import get_redis_connection
 
@@ -592,14 +553,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# For CryoTensor OIDC/OAuth2
-oauth_manager = OAuthManager(app)
-app.state.oauth_manager = oauth_manager
-
-# For Integrations
-oauth_client_manager = OAuthClientManager(app)
-app.state.oauth_client_manager = oauth_client_manager
-
 app.state.instance_id = None
 app.state.config = AppConfig(
     redis_url=REDIS_URL,
@@ -611,18 +564,6 @@ app.state.redis = None
 
 app.state.WEBUI_NAME = WEBUI_NAME
 app.state.LICENSE_METADATA = None
-
-
-########################################
-#
-# OPENTELEMETRY
-#
-########################################
-
-if ENABLE_OTEL:
-    from open_webui.utils.telemetry.setup import setup as setup_opentelemetry
-
-    setup_opentelemetry(app=app, db_engine=engine)
 
 
 ########################################
@@ -716,42 +657,12 @@ app.state.config.MODEL_ORDER_LIST = MODEL_ORDER_LIST
 
 app.state.config.ENABLE_CHANNELS = False
 app.state.config.ENABLE_NOTES = ENABLE_NOTES
-app.state.config.ENABLE_COMMUNITY_SHARING = ENABLE_COMMUNITY_SHARING
-app.state.config.COMMUNITY_SHARING_BASE_URL = COMMUNITY_SHARING_BASE_URL
 app.state.config.ENABLE_MESSAGE_RATING = False
 app.state.config.ENABLE_USER_WEBHOOKS = ENABLE_USER_WEBHOOKS
 
 app.state.config.ENABLE_EVALUATION_ARENA_MODELS = False
 app.state.config.EVALUATION_ARENA_MODELS = []
 
-app.state.config.OAUTH_USERNAME_CLAIM = OAUTH_USERNAME_CLAIM
-app.state.config.OAUTH_PICTURE_CLAIM = OAUTH_PICTURE_CLAIM
-app.state.config.OAUTH_EMAIL_CLAIM = OAUTH_EMAIL_CLAIM
-
-app.state.config.ENABLE_OAUTH_ROLE_MANAGEMENT = ENABLE_OAUTH_ROLE_MANAGEMENT
-app.state.config.OAUTH_ROLES_CLAIM = OAUTH_ROLES_CLAIM
-app.state.config.OAUTH_ALLOWED_ROLES = OAUTH_ALLOWED_ROLES
-app.state.config.OAUTH_ADMIN_ROLES = OAUTH_ADMIN_ROLES
-
-app.state.config.ENABLE_LDAP = ENABLE_LDAP
-app.state.config.LDAP_SERVER_LABEL = LDAP_SERVER_LABEL
-app.state.config.LDAP_SERVER_HOST = LDAP_SERVER_HOST
-app.state.config.LDAP_SERVER_PORT = LDAP_SERVER_PORT
-app.state.config.LDAP_ATTRIBUTE_FOR_MAIL = LDAP_ATTRIBUTE_FOR_MAIL
-app.state.config.LDAP_ATTRIBUTE_FOR_USERNAME = LDAP_ATTRIBUTE_FOR_USERNAME
-app.state.config.LDAP_APP_DN = LDAP_APP_DN
-app.state.config.LDAP_APP_PASSWORD = LDAP_APP_PASSWORD
-app.state.config.LDAP_SEARCH_BASE = LDAP_SEARCH_BASE
-app.state.config.LDAP_SEARCH_FILTERS = LDAP_SEARCH_FILTERS
-app.state.config.LDAP_USE_TLS = LDAP_USE_TLS
-app.state.config.LDAP_CA_CERT_FILE = LDAP_CA_CERT_FILE
-app.state.config.LDAP_VALIDATE_CERT = LDAP_VALIDATE_CERT
-app.state.config.LDAP_CIPHERS = LDAP_CIPHERS
-
-# For LDAP Group Management
-app.state.config.ENABLE_LDAP_GROUP_MANAGEMENT = ENABLE_LDAP_GROUP_MANAGEMENT
-app.state.config.ENABLE_LDAP_GROUP_CREATION = ENABLE_LDAP_GROUP_CREATION
-app.state.config.LDAP_ATTRIBUTE_FOR_GROUPS = LDAP_ATTRIBUTE_FOR_GROUPS
 
 
 app.state.AUTH_TRUSTED_EMAIL_HEADER = WEBUI_AUTH_TRUSTED_EMAIL_HEADER
@@ -1657,22 +1568,14 @@ async def get_app_config(request: Request):
         "name": app.state.WEBUI_NAME,
         "version": VERSION,
         "default_locale": str(DEFAULT_LOCALE),
-        "oauth": {
-            "providers": {
-                name: config.get("name", name)
-                for name, config in OAUTH_PROVIDERS.items()
-            }
-        },
         "features": {
             "auth": WEBUI_AUTH,
             "auth_trusted_header": bool(app.state.AUTH_TRUSTED_EMAIL_HEADER),
             "enable_signup_password_confirmation": ENABLE_SIGNUP_PASSWORD_CONFIRMATION,
-            "enable_ldap": app.state.config.ENABLE_LDAP,
             "enable_api_key": app.state.config.ENABLE_API_KEY,
             "enable_signup": app.state.config.ENABLE_SIGNUP,
             "enable_login_form": app.state.config.ENABLE_LOGIN_FORM,
             "enable_websocket": ENABLE_WEBSOCKET_SUPPORT,
-            "enable_version_update_check": ENABLE_VERSION_UPDATE_CHECK,
             **(
                 {
                     "enable_direct_connections": app.state.config.ENABLE_DIRECT_CONNECTIONS,
@@ -1683,8 +1586,6 @@ async def get_app_config(request: Request):
                     "enable_code_interpreter": app.state.config.ENABLE_CODE_INTERPRETER,
                     "enable_image_generation": app.state.config.ENABLE_IMAGE_GENERATION,
                     "enable_autocomplete_generation": app.state.config.ENABLE_AUTOCOMPLETE_GENERATION,
-                    "enable_community_sharing": app.state.config.ENABLE_COMMUNITY_SHARING,
-                    "community_sharing_base_url": app.state.config.COMMUNITY_SHARING_BASE_URL,
                     "enable_message_rating": app.state.config.ENABLE_MESSAGE_RATING,
                     "enable_user_webhooks": app.state.config.ENABLE_USER_WEBHOOKS,
                     "enable_admin_export": ENABLE_ADMIN_EXPORT,
@@ -1793,26 +1694,7 @@ async def get_app_version():
 
 @app.get("/api/version/updates")
 async def get_app_latest_release_version(user=Depends(get_verified_user)):
-    if not ENABLE_VERSION_UPDATE_CHECK:
-        log.debug(
-            f"Version update check is disabled, returning current version as latest version"
-        )
-        return {"current": VERSION, "latest": VERSION}
-    try:
-        timeout = aiohttp.ClientTimeout(total=1)
-        async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
-            async with session.get(
-                "https://api.github.com/repos/open-webui/open-webui/releases/latest",
-                ssl=AIOHTTP_CLIENT_SESSION_SSL,
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-                latest_version = data["tag_name"]
-
-                return {"current": VERSION, "latest": latest_version[1:]}
-    except Exception as e:
-        log.debug(e)
-        return {"current": VERSION, "latest": VERSION}
+    return {"current": VERSION, "latest": VERSION}
 
 
 @app.get("/api/changelog")
@@ -1832,27 +1714,6 @@ async def get_current_usage(user=Depends(get_verified_user)):
         log.error(f"Error getting usage statistics: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-
-############################
-# OAuth Login & Callback
-############################
-
-
-# Initialize OAuth client manager with any MCP tool servers using OAuth 2.1
-if len(app.state.config.TOOL_SERVER_CONNECTIONS) > 0:
-    for tool_server_connection in app.state.config.TOOL_SERVER_CONNECTIONS:
-        if tool_server_connection.get("type", "openapi") == "mcp":
-            server_id = tool_server_connection.get("info", {}).get("id")
-            auth_type = tool_server_connection.get("auth_type", "none")
-            if server_id and auth_type == "oauth_2.1":
-                oauth_client_info = tool_server_connection.get("info", {}).get(
-                    "oauth_client_info", ""
-                )
-
-                oauth_client_info = decrypt_data(oauth_client_info)
-                app.state.oauth_client_manager.add_client(
-                    f"mcp:{server_id}", OAuthClientInformationFull(**oauth_client_info)
-                )
 
 try:
     if REDIS_URL:
@@ -1880,48 +1741,6 @@ except Exception as e:
         same_site=WEBUI_SESSION_COOKIE_SAME_SITE,
         https_only=WEBUI_SESSION_COOKIE_SECURE,
     )
-
-
-@app.get("/oauth/clients/{client_id}/authorize")
-async def oauth_client_authorize(
-    client_id: str,
-    request: Request,
-    response: Response,
-    user=Depends(get_verified_user),
-):
-    return await oauth_client_manager.handle_authorize(request, client_id=client_id)
-
-
-@app.get("/oauth/clients/{client_id}/callback")
-async def oauth_client_callback(
-    client_id: str,
-    request: Request,
-    response: Response,
-    user=Depends(get_verified_user),
-):
-    return await oauth_client_manager.handle_callback(
-        request,
-        client_id=client_id,
-        user_id=user.id if user else None,
-        response=response,
-    )
-
-
-@app.get("/oauth/{provider}/login")
-async def oauth_login(provider: str, request: Request):
-    return await oauth_manager.handle_login(request, provider)
-
-
-# OAuth login logic is as follows:
-# 1. Attempt to find a user with matching subject ID, tied to the provider
-# 2. If OAUTH_MERGE_ACCOUNTS_BY_EMAIL is true, find a user with the email address provided via OAuth
-#    - This is considered insecure in general, as OAuth providers do not always verify email addresses
-# 3. If there is no user, and ENABLE_OAUTH_SIGNUP is true, create a user
-#    - Email addresses are considered unique, so we fail registration if the email address is already taken
-@app.get("/oauth/{provider}/login/callback")
-@app.get("/oauth/{provider}/callback")  # Legacy endpoint
-async def oauth_login_callback(provider: str, request: Request, response: Response):
-    return await oauth_manager.handle_callback(request, provider, response)
 
 
 @app.get("/manifest.json")

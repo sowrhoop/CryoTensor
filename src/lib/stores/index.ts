@@ -256,11 +256,8 @@ type Config = {
 		enable_image_generation: boolean;
 		enable_admin_export: boolean;
 		enable_admin_chat_access: boolean;
-		enable_community_sharing: boolean;
-		community_sharing_base_url?: string;
 		enable_autocomplete_generation: boolean;
 		enable_direct_connections: boolean;
-		enable_version_update_check: boolean;
 		enable_message_rating?: boolean;
 		enable_user_webhooks?: boolean;
 	};

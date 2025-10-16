@@ -24,7 +24,6 @@ from fastapi.responses import HTMLResponse
 from starlette.responses import Response, StreamingResponse, JSONResponse
 
 
-from open_webui.models.oauth_sessions import OAuthSessions
 from open_webui.models.chats import Chats
 from open_webui.models.folders import Folders
 from open_webui.models.users import Users
