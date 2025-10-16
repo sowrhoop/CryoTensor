@@ -171,7 +171,7 @@ Discover upcoming features on our roadmap in the [CryoTensor Documentation](http
 
 ## License 📜
 
-This project contains code under multiple licenses. The current codebase includes components licensed under the CryoTensor License with an additional requirement to preserve the "CryoTensor" branding, as well as prior contributions under their respective original licenses. For a detailed record of license changes and the applicable terms for each section of the code, please refer to [LICENSE_HISTORY](./LICENSE_HISTORY). For complete and updated licensing details, please see the [LICENSE](./LICENSE) and [LICENSE_HISTORY](./LICENSE_HISTORY) files.
+This project contains code under multiple licenses. The current codebase includes components licensed under the CryoTensor License with an additional requirement to preserve the "CryoTensor" branding, as well as prior contributions under their respective original licenses. For complete and updated licensing details, please see the [LICENSE](./LICENSE) file.
 
 ## Support 💬
 

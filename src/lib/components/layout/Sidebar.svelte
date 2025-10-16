@@ -19,8 +19,6 @@
 		scrollPaginationEnabled,
 		currentChatPage,
 		temporaryChatEnabled,
-		channels,
-		socket,
 		config,
 		isApp,
 		models,
@@ -51,9 +49,6 @@
 	import Folder from '../common/Folder.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
 	import Folders from './Sidebar/Folders.svelte';
-	import { getChannels, createNewChannel } from '$lib/apis/channels';
-	import ChannelModal from './Sidebar/ChannelModal.svelte';
-	import ChannelItem from './Sidebar/ChannelItem.svelte';
 	import PencilSquare from '../icons/PencilSquare.svelte';
 	import Search from '../icons/Search.svelte';
 	import SearchModal from './SearchModal.svelte';
@@ -73,10 +68,8 @@
 	let selectedChatId = null;
 	let showPinnedChat = true;
 
-	let showCreateChannel = false;
-
-	// Pagination variables
-	let chatListLoading = false;
+// Pagination variables
+let chatListLoading = false;
 	let allChatsLoaded = false;
 
 	let showCreateFolderModal = false;
@@ -177,10 +170,6 @@
 			// newFolderId = res.id;
 			await initFolders();
 		}
-	};
-
-	const initChannels = async () => {
-		await channels.set(await getChannels(localStorage.token));
 	};
 
 	const initChatList = async () => {
@@ -382,7 +371,6 @@
 			}
 
 			if (!value) {
-				await initChannels();
 				await initChatList();
 			}
 		});
@@ -391,7 +379,6 @@
 			initFolders();
 		});
 
-		await initChannels();
 		await initChatList();
 
 		window.addEventListener('keydown', onKeyDown);
@@ -462,25 +449,6 @@
 	bind:show={$showArchivedChats}
 	onUpdate={async () => {
 		await initChatList();
-	}}
-/>
-
-<ChannelModal
-	bind:show={showCreateChannel}
-	onSubmit={async ({ name, access_control }) => {
-		const res = await createNewChannel(localStorage.token, {
-			name: name,
-			access_control: access_control
-		}).catch((error) => {
-			toast.error(`${error}`);
-			return null;
-		});
-
-		if (res) {
-			$socket.emit('join-channels', { auth: { token: $user?.token } });
-			await initChannels();
-			showCreateChannel = false;
-		}
 	}}
 />
 
@@ -871,34 +839,6 @@
 
 				{#if ($models ?? []).length > 0 && ($settings?.pinnedModels ?? []).length > 0}
 					<PinnedModelList bind:selectedChatId {shiftKey} />
-				{/if}
-
-				{#if $config?.features?.enable_channels && ($user?.role === 'admin' || $channels.length > 0)}
-					<Folder
-						className="px-2 mt-0.5"
-						name={$i18n.t('Channels')}
-						chevron={false}
-						dragAndDrop={false}
-						onAdd={async () => {
-							if ($user?.role === 'admin') {
-								await tick();
-
-								setTimeout(() => {
-									showCreateChannel = true;
-								}, 0);
-							}
-						}}
-						onAddLabel={$i18n.t('Create Channel')}
-					>
-						{#each $channels as channel}
-							<ChannelItem
-								{channel}
-								onUpdate={async () => {
-									await initChannels();
-								}}
-							/>
-						{/each}
-					</Folder>
 				{/if}
 
 				{#if folders}

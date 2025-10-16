@@ -1,13 +1,9 @@
 <script lang="ts">
 	import type { Token } from 'marked';
-	import { LinkPreview } from 'bits-ui';
-
 	import { getContext } from 'svelte';
 
 	import { goto } from '$app/navigation';
-	import { channels, models } from '$lib/stores';
-	import UserStatus from '$lib/components/channel/Messages/Message/UserStatus.svelte';
-	import UserStatusLinkPreview from '$lib/components/channel/Messages/Message/UserStatusLinkPreview.svelte';
+	import { models } from '$lib/stores';
 
 	const i18n = getContext('i18n');
 
@@ -40,16 +36,9 @@
 		triggerChar = token?.triggerChar ?? '@';
 
 		if (triggerChar === '#') {
-			if (idType === 'C') {
-				// Channel
-				const channel = $channels.find((c) => c.id === id);
-				if (channel) {
-					label = channel.name;
-				} else {
-					label = $i18n.t('Unknown');
-				}
-			} else if (idType === 'T') {
-				// Thread
+			// No channel support in pared-down build; fall back to label as-is
+			if (!label) {
+				label = $i18n.t('Unknown');
 			}
 		} else if (triggerChar === '@') {
 			if (idType === 'U') {
@@ -67,42 +56,13 @@
 	};
 </script>
 
-<LinkPreview.Root openDelay={0} closeDelay={0}>
-	<LinkPreview.Trigger class=" cursor-pointer no-underline! font-normal! ">
-		<!-- svelte-ignore a11y-click-events-have-key-events -->
-		<!-- svelte-ignore a11y-no-static-element-interactions -->
-
-		<span
-			class="mention"
-			on:click={async () => {
-				if (triggerChar === '@') {
-					if (idType === 'U') {
-						// Open user profile
-						console.log('Clicked user mention', id);
-					} else if (idType === 'M') {
-						console.log('Clicked model mention', id);
-						await goto(`/?model=${id}`);
-					}
-				} else if (triggerChar === '#') {
-					if (idType === 'C') {
-						// Open channel
-						if ($channels.find((c) => c.id === id)) {
-							await goto(`/channels/${id}`);
-						}
-					} else if (idType === 'T') {
-						// Open thread
-					}
-				} else {
-					// Unknown trigger char, just log
-					console.log('Clicked mention', id);
-				}
-			}}
-		>
-			{triggerChar}{label}
-		</span>
-	</LinkPreview.Trigger>
-
-	{#if triggerChar === '@' && idType === 'U'}
-		<UserStatusLinkPreview {id} />
-	{/if}
-</LinkPreview.Root>
+<span
+	class="mention cursor-pointer"
+	on:click={async () => {
+		if (triggerChar === '@' && idType === 'M') {
+			await goto(`/?model=${id}`);
+		}
+	}}
+>
+	{triggerChar}{label}
+</span>

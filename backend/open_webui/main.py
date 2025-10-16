@@ -78,7 +78,6 @@ from open_webui.routers import (
     pipelines,
     tasks,
     auths,
-    channels,
     chats,
     notes,
     folders,
@@ -90,11 +89,9 @@ from open_webui.routers import (
     models,
     knowledge,
     prompts,
-    evaluations,
     tools,
     users,
     utils,
-    scim,
 )
 
 from open_webui.routers.retrieval import (
@@ -338,13 +335,10 @@ from open_webui.config import (
     ENABLE_API_KEY,
     ENABLE_API_KEY_ENDPOINT_RESTRICTIONS,
     API_KEY_ALLOWED_ENDPOINTS,
-    ENABLE_CHANNELS,
     ENABLE_NOTES,
     ENABLE_COMMUNITY_SHARING,
     COMMUNITY_SHARING_BASE_URL,
-    ENABLE_MESSAGE_RATING,
     ENABLE_USER_WEBHOOKS,
-    ENABLE_EVALUATION_ARENA_MODELS,
     BYPASS_ADMIN_ACCESS_CONTROL,
     USER_PERMISSIONS,
     DEFAULT_USER_ROLE,
@@ -354,7 +348,6 @@ from open_webui.config import (
     DEFAULT_MODELS,
     DEFAULT_ARENA_MODEL,
     MODEL_ORDER_LIST,
-    EVALUATION_ARENA_MODELS,
     # WebUI (OAuth)
     ENABLE_OAUTH_ROLE_MANAGEMENT,
     OAUTH_ROLES_CLAIM,
@@ -440,9 +433,6 @@ from open_webui.env import (
     WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
     WEBUI_AUTH_TRUSTED_NAME_HEADER,
     WEBUI_AUTH_SIGNOUT_REDIRECT_URL,
-    # SCIM
-    SCIM_ENABLED,
-    SCIM_TOKEN,
     ENABLE_COMPRESSION_MIDDLEWARE,
     ENABLE_WEBSOCKET_SUPPORT,
     BYPASS_MODEL_ACCESS_CONTROL,
@@ -690,15 +680,6 @@ app.state.config.ENABLE_DIRECT_CONNECTIONS = ENABLE_DIRECT_CONNECTIONS
 
 ########################################
 #
-# SCIM
-#
-########################################
-
-app.state.SCIM_ENABLED = SCIM_ENABLED
-app.state.SCIM_TOKEN = SCIM_TOKEN
-
-########################################
-#
 # MODELS
 #
 ########################################
@@ -743,15 +724,15 @@ app.state.config.BANNERS = WEBUI_BANNERS
 app.state.config.MODEL_ORDER_LIST = MODEL_ORDER_LIST
 
 
-app.state.config.ENABLE_CHANNELS = ENABLE_CHANNELS
+app.state.config.ENABLE_CHANNELS = False
 app.state.config.ENABLE_NOTES = ENABLE_NOTES
 app.state.config.ENABLE_COMMUNITY_SHARING = ENABLE_COMMUNITY_SHARING
 app.state.config.COMMUNITY_SHARING_BASE_URL = COMMUNITY_SHARING_BASE_URL
-app.state.config.ENABLE_MESSAGE_RATING = ENABLE_MESSAGE_RATING
+app.state.config.ENABLE_MESSAGE_RATING = False
 app.state.config.ENABLE_USER_WEBHOOKS = ENABLE_USER_WEBHOOKS
 
-app.state.config.ENABLE_EVALUATION_ARENA_MODELS = ENABLE_EVALUATION_ARENA_MODELS
-app.state.config.EVALUATION_ARENA_MODELS = EVALUATION_ARENA_MODELS
+app.state.config.ENABLE_EVALUATION_ARENA_MODELS = False
+app.state.config.EVALUATION_ARENA_MODELS = []
 
 app.state.config.OAUTH_USERNAME_CLAIM = OAUTH_USERNAME_CLAIM
 app.state.config.OAUTH_PICTURE_CLAIM = OAUTH_PICTURE_CLAIM
@@ -1264,7 +1245,6 @@ app.include_router(auths.router, prefix="/api/v1/auths", tags=["auths"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
 
-app.include_router(channels.router, prefix="/api/v1/channels", tags=["channels"])
 app.include_router(chats.router, prefix="/api/v1/chats", tags=["chats"])
 app.include_router(notes.router, prefix="/api/v1/notes", tags=["notes"])
 
@@ -1279,14 +1259,7 @@ app.include_router(folders.router, prefix="/api/v1/folders", tags=["folders"])
 app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"])
 app.include_router(files.router, prefix="/api/v1/files", tags=["files"])
 app.include_router(functions.router, prefix="/api/v1/functions", tags=["functions"])
-app.include_router(
-    evaluations.router, prefix="/api/v1/evaluations", tags=["evaluations"]
-)
 app.include_router(utils.router, prefix="/api/v1/utils", tags=["utils"])
-
-# SCIM 2.0 API for identity management
-if SCIM_ENABLED:
-    app.include_router(scim.router, prefix="/api/v1/scim/v2", tags=["scim"])
 
 
 try:
