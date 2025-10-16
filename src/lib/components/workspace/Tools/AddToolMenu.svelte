@@ -4,16 +4,7 @@
 	import { getContext } from 'svelte';
 
 	import Dropdown from '$lib/components/common/Dropdown.svelte';
-	import GarbageBin from '$lib/components/icons/GarbageBin.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Share from '$lib/components/icons/Share.svelte';
-	import DocumentDuplicate from '$lib/components/icons/DocumentDuplicate.svelte';
-	import Download from '$lib/components/icons/Download.svelte';
-	import Switch from '$lib/components/common/Switch.svelte';
-	import GlobeAlt from '$lib/components/icons/GlobeAlt.svelte';
-	import Github from '$lib/components/icons/Github.svelte';
-	import Plus from '$lib/components/icons/Plus.svelte';
-	import Pencil from '$lib/components/icons/Pencil.svelte';
 	import PencilSolid from '$lib/components/icons/PencilSolid.svelte';
 	import Link from '$lib/components/icons/Link.svelte';
 

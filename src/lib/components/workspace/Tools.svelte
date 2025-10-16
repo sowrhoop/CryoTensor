@@ -4,8 +4,7 @@
 	const { saveAs } = fileSaver;
 
 	import { onMount, getContext } from 'svelte';
-	import { WEBUI_NAME, config, prompts, tools as _tools, user } from '$lib/stores';
-	import { createNewPrompt, deletePromptByCommand, getPrompts } from '$lib/apis/prompts';
+	import { WEBUI_NAME, tools as _tools, user } from '$lib/stores';
 
 	import { goto } from '$app/navigation';
 	import {

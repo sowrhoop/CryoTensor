@@ -58,24 +58,6 @@
 	let showDeleteConfirm = false;
 
 let filteredItems = [];
-
-const resolveCommunityShareTarget = (path: string) => {
-	const base = $config?.features?.community_sharing_base_url?.trim();
-	if (!base) {
-		toast.error($i18n.t('Community sharing is disabled.'));
-		return null;
-	}
-
-	try {
-		const baseUrl = new URL(base);
-		const target = new URL(path, baseUrl);
-		return { href: target.toString(), origin: target.origin };
-	} catch (error) {
-		console.error('Invalid community sharing URL', error);
-		toast.error($i18n.t('Community sharing URL is invalid.'));
-		return null;
-	}
-};
 	$: filteredItems = $functions
 		.filter(
 			(f) =>
@@ -85,38 +67,6 @@ const resolveCommunityShareTarget = (path: string) => {
 					f.id.toLowerCase().includes(query.toLowerCase()))
 		)
 		.sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
-
-	const shareHandler = async (func) => {
-		const item = await getFunctionById(localStorage.token, func.id).catch((error) => {
-			toast.error(`${error}`);
-			return null;
-		});
-
-	const communityTarget = resolveCommunityShareTarget('/functions/create');
-	if (!communityTarget) return;
-
-	toast.success($i18n.t('Redirecting you to community sharing'));
-
-	const tab = await window.open(communityTarget.href, '_blank');
-	if (!tab) {
-		toast.error($i18n.t('Please allow pop-ups to share to the community.'));
-		return;
-	}
-
-	// Define the event handler function
-	const messageHandler = (event) => {
-		if (event.origin !== communityTarget.origin) return;
-		if (event.data === 'loaded') {
-			tab.postMessage(JSON.stringify(item), '*');
-
-			// Remove the event listener after handling the message
-				window.removeEventListener('message', messageHandler);
-			}
-		};
-
-		window.addEventListener('message', messageHandler, false);
-		console.log(item);
-	};
 
 	const cloneHandler = async (func) => {
 		const _function = await getFunctionById(localStorage.token, func.id).catch((error) => {
@@ -445,9 +395,6 @@ const resolveCommunityShareTarget = (path: string) => {
 						{func}
 						editHandler={() => {
 							goto(`/admin/functions/edit?id=${encodeURIComponent(func.id)}`);
-						}}
-						shareHandler={() => {
-							shareHandler(func);
 						}}
 						cloneHandler={() => {
 							cloneHandler(func);

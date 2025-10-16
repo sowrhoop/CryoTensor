@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { getContext, onMount } from 'svelte';
-	import { models, config } from '$lib/stores';
+	import { getContext } from 'svelte';
 
 	import { toast } from 'svelte-sonner';
 	import { deleteSharedChatById, getChatById, shareChatById } from '$lib/apis/chats';
@@ -16,24 +15,6 @@
 	let shareUrl = null;
 	const i18n = getContext('i18n');
 
-	const resolveCommunityShareTarget = (path: string) => {
-		const base = $config?.features?.community_sharing_base_url?.trim();
-		if (!base) {
-			toast.error($i18n.t('Community sharing is disabled.'));
-			return null;
-		}
-
-		try {
-			const baseUrl = new URL(base);
-			const target = new URL(path, baseUrl);
-			return { href: target.toString(), origin: target.origin };
-		} catch (error) {
-			console.error('Invalid community sharing URL', error);
-			toast.error($i18n.t('Community sharing URL is invalid.'));
-			return null;
-		}
-	};
-
 	const shareLocalChat = async () => {
 		const _chat = chat;
 
@@ -43,38 +24,6 @@
 		chat = await getChatById(localStorage.token, chatId);
 
 		return shareUrl;
-	};
-
-	const shareChat = async () => {
-		const _chat = chat.chat;
-		console.log('share', _chat);
-
-	const communityTarget = resolveCommunityShareTarget('/chats/upload');
-	if (!communityTarget) return;
-
-	toast.success($i18n.t('Redirecting you to community sharing'));
-
-	const tab = await window.open(communityTarget.href, '_blank');
-	if (!tab) {
-		toast.error($i18n.t('Please allow pop-ups to share to the community.'));
-		return;
-	}
-	window.addEventListener(
-		'message',
-		(event) => {
-			if (event.origin !== communityTarget.origin) return;
-			if (event.data === 'loaded') {
-				tab.postMessage(
-						JSON.stringify({
-							chat: _chat,
-							models: $models.filter((m) => _chat.models.includes(m.id))
-						}),
-						'*'
-					);
-				}
-			},
-			false
-		);
 	};
 
 	export let show = false;

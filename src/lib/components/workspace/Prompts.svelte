@@ -5,7 +5,7 @@
 
 	import { goto } from '$app/navigation';
 	import { onMount, getContext } from 'svelte';
-	import { WEBUI_NAME, config, prompts as _prompts, user } from '$lib/stores';
+import { WEBUI_NAME, prompts as _prompts, user } from '$lib/stores';
 
 	import {
 		createNewPrompt,
@@ -41,24 +41,6 @@ let showDeleteConfirm = false;
 let deletePrompt = null;
 
 let filteredItems = [];
-
-const resolveCommunityShareTarget = (path: string) => {
-	const base = $config?.features?.community_sharing_base_url?.trim();
-	if (!base) {
-		toast.error($i18n.t('Community sharing is disabled.'));
-		return null;
-	}
-
-	try {
-		const baseUrl = new URL(base);
-		const target = new URL(path, baseUrl);
-		return { href: target.toString(), origin: target.origin };
-	} catch (error) {
-		console.error('Invalid community sharing URL', error);
-		toast.error($i18n.t('Community sharing URL is invalid.'));
-		return null;
-	}
-};
 	$: filteredItems = prompts.filter((p) => {
 		if (query === '') return true;
 		const lowerQuery = query.toLowerCase();
@@ -69,29 +51,6 @@ const resolveCommunityShareTarget = (path: string) => {
 			(p.user?.email || '').toLowerCase().includes(lowerQuery)
 		);
 	});
-
-	const shareHandler = async (prompt) => {
-	const communityTarget = resolveCommunityShareTarget('/prompts/create');
-	if (!communityTarget) return;
-
-	toast.success($i18n.t('Redirecting you to community sharing'));
-
-	const tab = await window.open(communityTarget.href, '_blank');
-	if (!tab) {
-		toast.error($i18n.t('Please allow pop-ups to share to the community.'));
-		return;
-	}
-	window.addEventListener(
-		'message',
-		(event) => {
-			if (event.origin !== communityTarget.origin) return;
-			if (event.data === 'loaded') {
-				tab.postMessage(JSON.stringify(prompt), '*');
-			}
-		},
-			false
-		);
-	};
 
 	const cloneHandler = async (prompt) => {
 		const clonedPrompt = { ...prompt };
@@ -298,9 +257,6 @@ const resolveCommunityShareTarget = (path: string) => {
 						</a>
 
 						<PromptMenu
-							shareHandler={() => {
-								shareHandler(prompt);
-							}}
 							cloneHandler={() => {
 								cloneHandler(prompt);
 							}}
