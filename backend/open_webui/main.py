@@ -23,6 +23,10 @@ import anyio.to_thread
 import requests
 from redis import Redis
 
+from open_webui.security.network_guard import apply_network_restrictions
+
+apply_network_restrictions()
+
 
 from fastapi import (
     Depends,
@@ -69,7 +73,6 @@ from open_webui.socket.main import (
 from open_webui.routers import (
     audio,
     images,
-    ollama,
     openai,
     retrieval,
     pipelines,
@@ -1245,7 +1248,6 @@ app.add_middleware(
 app.mount("/ws", socket_app)
 
 
-app.include_router(ollama.router, prefix="/ollama", tags=["ollama"])
 app.include_router(openai.router, prefix="/openai", tags=["openai"])
 
 

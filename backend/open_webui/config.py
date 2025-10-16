@@ -374,6 +374,12 @@ class AppConfig:
     _redis_key_prefix: str
 
     _state: dict[str, PersistentConfig]
+    LOCKED_BOOL_VALUES: dict[str, bool] = {
+        "ENABLE_OLLAMA_API": False,
+        "ENABLE_USER_WEBHOOKS": False,
+        "ENABLE_CODE_EXECUTION": False,
+        "ENABLE_CODE_INTERPRETER": False,
+    }
 
     def __init__(
         self,
@@ -400,6 +406,14 @@ class AppConfig:
         if isinstance(value, PersistentConfig):
             self._state[key] = value
         else:
+            if (
+                key in self.LOCKED_BOOL_VALUES
+                and value != self.LOCKED_BOOL_VALUES[key]
+            ):
+                raise ValueError(
+                    f"Configuration '{key}' is locked and can only be set to "
+                    f"{self.LOCKED_BOOL_VALUES[key]}."
+                )
             self._state[key].value = value
             self._state[key].save()
 
@@ -985,58 +999,6 @@ if frontend_loader.exists():
     except Exception as e:
         logging.error(f"An error occurred: {e}")
 
-
-####################################
-# CUSTOM_NAME (Legacy)
-####################################
-
-CUSTOM_NAME = os.environ.get("CUSTOM_NAME", "")
-
-if CUSTOM_NAME and ENABLE_REMOTE_BRANDING_FETCH:
-    try:
-        r = requests.get(f"https://api.openwebui.com/api/v1/custom/{CUSTOM_NAME}")
-        data = r.json()
-        if r.ok:
-            if "logo" in data:
-                WEBUI_FAVICON_URL = url = (
-                    f"https://api.openwebui.com{data['logo']}"
-                    if data["logo"][0] == "/"
-                    else data["logo"]
-                )
-
-                r = requests.get(url, stream=True)
-                if r.status_code == 200:
-                    with open(f"{STATIC_DIR}/favicon.png", "wb") as f:
-                        r.raw.decode_content = True
-                        shutil.copyfileobj(r.raw, f)
-
-            if "splash" in data:
-                url = (
-                    f"https://api.openwebui.com{data['splash']}"
-                    if data["splash"][0] == "/"
-                    else data["splash"]
-                )
-
-                r = requests.get(url, stream=True)
-                if r.status_code == 200:
-                    with open(f"{STATIC_DIR}/splash.png", "wb") as f:
-                        r.raw.decode_content = True
-                        shutil.copyfileobj(r.raw, f)
-
-            WEBUI_NAME = data["name"]
-    except Exception as e:
-        log.exception(e)
-        pass
-elif CUSTOM_NAME and not ENABLE_REMOTE_BRANDING_FETCH:
-    log.info(
-        "ENABLE_REMOTE_BRANDING_FETCH is disabled; skipping remote branding lookup for CUSTOM_NAME"
-    )
-
-
-####################################
-# STORAGE PROVIDER
-####################################
-
 STORAGE_PROVIDER = os.environ.get("STORAGE_PROVIDER", "local")  # defaults to local, s3
 
 S3_ACCESS_KEY_ID = os.environ.get("S3_ACCESS_KEY_ID", None)
@@ -1093,7 +1055,7 @@ ENABLE_DIRECT_CONNECTIONS = PersistentConfig(
 ENABLE_OLLAMA_API = PersistentConfig(
     "ENABLE_OLLAMA_API",
     "ollama.enable",
-    os.environ.get("ENABLE_OLLAMA_API", "True").lower() == "true",
+    False,
 )
 
 OLLAMA_API_BASE_URL = os.environ.get(
@@ -1640,7 +1602,7 @@ ENABLE_MESSAGE_RATING = PersistentConfig(
 ENABLE_USER_WEBHOOKS = PersistentConfig(
     "ENABLE_USER_WEBHOOKS",
     "ui.enable_user_webhooks",
-    os.environ.get("ENABLE_USER_WEBHOOKS", "True").lower() == "true",
+    False,
 )
 
 # FastAPI / AnyIO settings
@@ -2018,7 +1980,7 @@ Responses from models: {{responses}}"""
 ENABLE_CODE_EXECUTION = PersistentConfig(
     "ENABLE_CODE_EXECUTION",
     "code_execution.enable",
-    os.environ.get("ENABLE_CODE_EXECUTION", "True").lower() == "true",
+    False,
 )
 
 CODE_EXECUTION_ENGINE = PersistentConfig(
@@ -2061,7 +2023,7 @@ CODE_EXECUTION_JUPYTER_TIMEOUT = PersistentConfig(
 ENABLE_CODE_INTERPRETER = PersistentConfig(
     "ENABLE_CODE_INTERPRETER",
     "code_interpreter.enable",
-    os.environ.get("ENABLE_CODE_INTERPRETER", "True").lower() == "true",
+    False,
 )
 
 CODE_INTERPRETER_ENGINE = PersistentConfig(

@@ -894,7 +894,13 @@ async def update_admin_config(
     )
     request.app.state.config.ENABLE_MESSAGE_RATING = form_data.ENABLE_MESSAGE_RATING
 
-    request.app.state.config.ENABLE_USER_WEBHOOKS = form_data.ENABLE_USER_WEBHOOKS
+    if form_data.ENABLE_USER_WEBHOOKS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User webhooks are disabled by system policy.",
+        )
+
+    request.app.state.config.ENABLE_USER_WEBHOOKS = False
 
     request.app.state.config.PENDING_USER_OVERLAY_TITLE = (
         form_data.PENDING_USER_OVERLAY_TITLE

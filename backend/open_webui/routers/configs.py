@@ -354,48 +354,34 @@ async def set_code_execution_config(
     request: Request, form_data: CodeInterpreterConfigForm, user=Depends(get_admin_user)
 ):
 
-    request.app.state.config.ENABLE_CODE_EXECUTION = form_data.ENABLE_CODE_EXECUTION
+    if form_data.ENABLE_CODE_EXECUTION:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Remote code execution is disabled by system policy.",
+        )
 
-    request.app.state.config.CODE_EXECUTION_ENGINE = form_data.CODE_EXECUTION_ENGINE
-    request.app.state.config.CODE_EXECUTION_JUPYTER_URL = (
-        form_data.CODE_EXECUTION_JUPYTER_URL
-    )
-    request.app.state.config.CODE_EXECUTION_JUPYTER_AUTH = (
-        form_data.CODE_EXECUTION_JUPYTER_AUTH
-    )
-    request.app.state.config.CODE_EXECUTION_JUPYTER_AUTH_TOKEN = (
-        form_data.CODE_EXECUTION_JUPYTER_AUTH_TOKEN
-    )
-    request.app.state.config.CODE_EXECUTION_JUPYTER_AUTH_PASSWORD = (
-        form_data.CODE_EXECUTION_JUPYTER_AUTH_PASSWORD
-    )
-    request.app.state.config.CODE_EXECUTION_JUPYTER_TIMEOUT = (
-        form_data.CODE_EXECUTION_JUPYTER_TIMEOUT
-    )
+    request.app.state.config.ENABLE_CODE_EXECUTION = False
+    request.app.state.config.CODE_EXECUTION_ENGINE = "pyodide"
+    request.app.state.config.CODE_EXECUTION_JUPYTER_URL = None
+    request.app.state.config.CODE_EXECUTION_JUPYTER_AUTH = ""
+    request.app.state.config.CODE_EXECUTION_JUPYTER_AUTH_TOKEN = ""
+    request.app.state.config.CODE_EXECUTION_JUPYTER_AUTH_PASSWORD = ""
+    request.app.state.config.CODE_EXECUTION_JUPYTER_TIMEOUT = None
 
-    request.app.state.config.ENABLE_CODE_INTERPRETER = form_data.ENABLE_CODE_INTERPRETER
-    request.app.state.config.CODE_INTERPRETER_ENGINE = form_data.CODE_INTERPRETER_ENGINE
-    request.app.state.config.CODE_INTERPRETER_PROMPT_TEMPLATE = (
-        form_data.CODE_INTERPRETER_PROMPT_TEMPLATE
-    )
+    if form_data.ENABLE_CODE_INTERPRETER:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The code interpreter feature is disabled by system policy.",
+        )
 
-    request.app.state.config.CODE_INTERPRETER_JUPYTER_URL = (
-        form_data.CODE_INTERPRETER_JUPYTER_URL
-    )
-
-    request.app.state.config.CODE_INTERPRETER_JUPYTER_AUTH = (
-        form_data.CODE_INTERPRETER_JUPYTER_AUTH
-    )
-
-    request.app.state.config.CODE_INTERPRETER_JUPYTER_AUTH_TOKEN = (
-        form_data.CODE_INTERPRETER_JUPYTER_AUTH_TOKEN
-    )
-    request.app.state.config.CODE_INTERPRETER_JUPYTER_AUTH_PASSWORD = (
-        form_data.CODE_INTERPRETER_JUPYTER_AUTH_PASSWORD
-    )
-    request.app.state.config.CODE_INTERPRETER_JUPYTER_TIMEOUT = (
-        form_data.CODE_INTERPRETER_JUPYTER_TIMEOUT
-    )
+    request.app.state.config.ENABLE_CODE_INTERPRETER = False
+    request.app.state.config.CODE_INTERPRETER_ENGINE = "pyodide"
+    request.app.state.config.CODE_INTERPRETER_PROMPT_TEMPLATE = None
+    request.app.state.config.CODE_INTERPRETER_JUPYTER_URL = None
+    request.app.state.config.CODE_INTERPRETER_JUPYTER_AUTH = ""
+    request.app.state.config.CODE_INTERPRETER_JUPYTER_AUTH_TOKEN = ""
+    request.app.state.config.CODE_INTERPRETER_JUPYTER_AUTH_PASSWORD = ""
+    request.app.state.config.CODE_INTERPRETER_JUPYTER_TIMEOUT = None
 
     return {
         "ENABLE_CODE_EXECUTION": request.app.state.config.ENABLE_CODE_EXECUTION,
