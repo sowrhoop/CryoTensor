@@ -389,8 +389,6 @@ from open_webui.env import (
     WEBUI_SESSION_COOKIE_SAME_SITE,
     WEBUI_SESSION_COOKIE_SECURE,
     ENABLE_SIGNUP_PASSWORD_CONFIRMATION,
-    WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
-    WEBUI_AUTH_TRUSTED_NAME_HEADER,
     WEBUI_AUTH_SIGNOUT_REDIRECT_URL,
     ENABLE_COMPRESSION_MIDDLEWARE,
     ENABLE_WEBSOCKET_SUPPORT,
@@ -665,8 +663,6 @@ app.state.config.EVALUATION_ARENA_MODELS = []
 
 
 
-app.state.AUTH_TRUSTED_EMAIL_HEADER = WEBUI_AUTH_TRUSTED_EMAIL_HEADER
-app.state.AUTH_TRUSTED_NAME_HEADER = WEBUI_AUTH_TRUSTED_NAME_HEADER
 app.state.WEBUI_AUTH_SIGNOUT_REDIRECT_URL = WEBUI_AUTH_SIGNOUT_REDIRECT_URL
 app.state.EXTERNAL_PWA_MANIFEST_URL = EXTERNAL_PWA_MANIFEST_URL
 
@@ -1570,7 +1566,6 @@ async def get_app_config(request: Request):
         "default_locale": str(DEFAULT_LOCALE),
         "features": {
             "auth": WEBUI_AUTH,
-            "auth_trusted_header": bool(app.state.AUTH_TRUSTED_EMAIL_HEADER),
             "enable_signup_password_confirmation": ENABLE_SIGNUP_PASSWORD_CONFIRMATION,
             "enable_api_key": app.state.config.ENABLE_API_KEY,
             "enable_signup": app.state.config.ENABLE_SIGNUP,

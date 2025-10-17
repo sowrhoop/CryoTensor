@@ -33,7 +33,6 @@ from open_webui.env import (
     TRUSTED_SIGNATURE_KEY,
     STATIC_DIR,
     SRC_LOG_LEVELS,
-    WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
     ENABLE_REMOTE_LICENSE_FETCH,
 )
 
@@ -45,7 +44,7 @@ from passlib.context import CryptContext
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
 log = logging.getLogger(__name__)
-log.setLevel(SRC_LOG_LEVELS["OAUTH"])
+log.setLevel(SRC_LOG_LEVELS["MAIN"])
 
 SESSION_SECRET = WEBUI_SECRET_KEY
 ALGORITHM = "HS256"
@@ -282,16 +281,6 @@ def get_current_user(
                     detail=ERROR_MESSAGES.INVALID_TOKEN,
                 )
             else:
-                if WEBUI_AUTH_TRUSTED_EMAIL_HEADER:
-                    trusted_email = request.headers.get(
-                        WEBUI_AUTH_TRUSTED_EMAIL_HEADER, ""
-                    ).lower()
-                    if trusted_email and user.email != trusted_email:
-                        raise HTTPException(
-                            status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="User mismatch. Please sign in again.",
-                        )
-
                 # Add user info to current span
                 current_span = trace.get_current_span()
                 if current_span:
@@ -316,13 +305,6 @@ def get_current_user(
         # Delete the token cookie
         if request.cookies.get("token"):
             response.delete_cookie("token")
-
-        if request.cookies.get("oauth_id_token"):
-            response.delete_cookie("oauth_id_token")
-
-        # Delete OAuth session if present
-        if request.cookies.get("oauth_session_id"):
-            response.delete_cookie("oauth_session_id")
 
         raise e
 

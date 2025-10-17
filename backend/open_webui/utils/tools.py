@@ -152,13 +152,13 @@ async def get_tools(
                             headers["Authorization"] = (
                                 f"Bearer {request.state.token.credentials}"
                             )
-                        elif auth_type == "system_oauth":
-                            cookies = request.cookies
-                            oauth_token = extra_params.get("__oauth_token__", None)
-                            if oauth_token:
-                                headers["Authorization"] = (
-                                    f"Bearer {oauth_token.get('access_token', '')}"
-                                )
+                        else:
+                            log.warning(
+                                "Unsupported tool server auth type '%s' for tool '%s'. Skipping.",
+                                auth_type,
+                                function_name,
+                            )
+                            continue
 
                         headers["Content-Type"] = "application/json"
 

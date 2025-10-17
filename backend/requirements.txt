@@ -11,7 +11,6 @@ cryptography
 bcrypt==4.3.0
 argon2-cffi==25.1.0
 PyJWT[crypto]==2.10.1
-authlib==1.6.3
 
 requests==2.32.5
 aiohttp==3.12.15
@@ -115,7 +114,6 @@ ddgs==9.0.0
 ## Google Drive
 google-api-python-client
 google-auth-httplib2
-google-auth-oauthlib
 
 ## Tests
 docker~=7.1.0

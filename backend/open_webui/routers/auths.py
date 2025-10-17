@@ -1,5 +1,4 @@
 import re
-import uuid
 import time
 import datetime
 import logging
@@ -16,13 +15,9 @@ from open_webui.models.auths import (
     UserResponse,
 )
 from open_webui.models.users import Users, UpdateProfileForm
-from open_webui.models.groups import Groups
 from open_webui.constants import ERROR_MESSAGES, WEBHOOK_MESSAGES
 from open_webui.env import (
     WEBUI_AUTH,
-    WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
-    WEBUI_AUTH_TRUSTED_NAME_HEADER,
-    WEBUI_AUTH_TRUSTED_GROUPS_HEADER,
     WEBUI_AUTH_COOKIE_SAME_SITE,
     WEBUI_AUTH_COOKIE_SECURE,
     WEBUI_AUTH_SIGNOUT_REDIRECT_URL,
@@ -157,8 +152,6 @@ async def update_profile(
 async def update_password(
     form_data: UpdatePasswordForm, session_user=Depends(get_current_user)
 ):
-    if WEBUI_AUTH_TRUSTED_EMAIL_HEADER:
-        raise HTTPException(400, detail=ERROR_MESSAGES.ACTION_PROHIBITED)
     if session_user:
         user = Auths.authenticate_user(session_user.email, form_data.password)
 
@@ -181,34 +174,7 @@ async def update_password(
 
 @router.post("/signin", response_model=SessionUserResponse)
 async def signin(request: Request, response: Response, form_data: SigninForm):
-    if WEBUI_AUTH_TRUSTED_EMAIL_HEADER:
-        if WEBUI_AUTH_TRUSTED_EMAIL_HEADER not in request.headers:
-            raise HTTPException(400, detail=ERROR_MESSAGES.INVALID_TRUSTED_HEADER)
-
-        email = request.headers[WEBUI_AUTH_TRUSTED_EMAIL_HEADER].lower()
-        name = email
-
-        if WEBUI_AUTH_TRUSTED_NAME_HEADER:
-            name = request.headers.get(WEBUI_AUTH_TRUSTED_NAME_HEADER, email)
-
-        if not Users.get_user_by_email(email.lower()):
-            await signup(
-                request,
-                response,
-                SignupForm(email=email, password=str(uuid.uuid4()), name=name),
-            )
-
-        user = Auths.authenticate_user_by_email(email)
-        if WEBUI_AUTH_TRUSTED_GROUPS_HEADER and user and user.role != "admin":
-            group_names = request.headers.get(
-                WEBUI_AUTH_TRUSTED_GROUPS_HEADER, ""
-            ).split(",")
-            group_names = [name.strip() for name in group_names if name.strip()]
-
-            if group_names:
-                Groups.sync_groups_by_group_names(user.id, group_names)
-
-    elif WEBUI_AUTH == False:
+    if WEBUI_AUTH == False:
         admin_email = "admin@localhost"
         admin_password = "admin"
 
@@ -395,8 +361,6 @@ async def signup(request: Request, response: Response, form_data: SignupForm):
 async def signout(request: Request, response: Response):
     response.delete_cookie("token")
     response.delete_cookie("oui-session")
-    response.delete_cookie("oauth_id_token")
-    response.delete_cookie("oauth_session_id")
 
     if WEBUI_AUTH_SIGNOUT_REDIRECT_URL:
         return JSONResponse(

@@ -96,7 +96,6 @@ log_sources = [
     "RAG",
     "WEBHOOK",
     "SOCKET",
-    "OAUTH",
 ]
 
 SRC_LOG_LEVELS = {}
@@ -416,15 +415,6 @@ ENABLE_SIGNUP_PASSWORD_CONFIRMATION = (
     os.environ.get("ENABLE_SIGNUP_PASSWORD_CONFIRMATION", "False").lower() == "true"
 )
 
-WEBUI_AUTH_TRUSTED_EMAIL_HEADER = os.environ.get(
-    "WEBUI_AUTH_TRUSTED_EMAIL_HEADER", None
-)
-WEBUI_AUTH_TRUSTED_NAME_HEADER = os.environ.get("WEBUI_AUTH_TRUSTED_NAME_HEADER", None)
-WEBUI_AUTH_TRUSTED_GROUPS_HEADER = os.environ.get(
-    "WEBUI_AUTH_TRUSTED_GROUPS_HEADER", None
-)
-
-
 BYPASS_MODEL_ACCESS_CONTROL = (
     os.environ.get("BYPASS_MODEL_ACCESS_CONTROL", "False").lower() == "true"
 )
@@ -468,31 +458,6 @@ if WEBUI_AUTH and WEBUI_SECRET_KEY == "":
 ENABLE_COMPRESSION_MIDDLEWARE = (
     os.environ.get("ENABLE_COMPRESSION_MIDDLEWARE", "True").lower() == "true"
 )
-
-####################################
-# OAUTH Configuration
-####################################
-
-
-ENABLE_OAUTH_ID_TOKEN_COOKIE = (
-    os.environ.get("ENABLE_OAUTH_ID_TOKEN_COOKIE", "True").lower() == "true"
-)
-
-OAUTH_CLIENT_INFO_ENCRYPTION_KEY = os.environ.get(
-    "OAUTH_CLIENT_INFO_ENCRYPTION_KEY", WEBUI_SECRET_KEY
-)
-
-OAUTH_SESSION_TOKEN_ENCRYPTION_KEY = os.environ.get(
-    "OAUTH_SESSION_TOKEN_ENCRYPTION_KEY", WEBUI_SECRET_KEY
-)
-
-
-####################################
-# SCIM Configuration
-####################################
-
-SCIM_ENABLED = os.environ.get("SCIM_ENABLED", "False").lower() == "true"
-SCIM_TOKEN = os.environ.get("SCIM_TOKEN", "")
 
 ####################################
 # LICENSE_KEY
