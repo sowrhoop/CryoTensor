@@ -1084,25 +1084,15 @@ Provide the enhanced notes in markdown format. Use markdown syntax for headings,
 									</button>
 								</Tooltip>
 
-								<NoteMenu
-									onDownload={(type) => {
-										downloadHandler(type);
-									}}
-									onCopyLink={async () => {
-										const baseUrl = window.location.origin;
-										const res = await copyToClipboard(`${baseUrl}/notes/${note.id}`);
-
-										if (res) {
-											toast.success($i18n.t('Copied link to clipboard'));
-										} else {
-											toast.error($i18n.t('Failed to copy link'));
-										}
-									}}
-									onCopyToClipboard={async () => {
-										const res = await copyToClipboard(
-											note.data.content.md,
-											note.data.content.html,
-											true
+				<NoteMenu
+					onDownload={(type) => {
+						downloadHandler(type);
+					}}
+					onCopyToClipboard={async () => {
+						const res = await copyToClipboard(
+							note.data.content.md,
+							note.data.content.html,
+							true
 										).catch((error) => {
 											toast.error(`${error}`);
 											return null;

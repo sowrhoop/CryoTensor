@@ -31,17 +31,13 @@
 	import AdjustmentsHorizontal from '$lib/components/icons/AdjustmentsHorizontal.svelte';
 	import Cube from '$lib/components/icons/Cube.svelte';
 	import Folder from '$lib/components/icons/Folder.svelte';
-	import Share from '$lib/components/icons/Share.svelte';
-	import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
-	import Messages from '$lib/components/chat/Messages.svelte';
-	import Download from '$lib/components/icons/Download.svelte';
+import ArchiveBox from '$lib/components/icons/ArchiveBox.svelte';
+import Messages from '$lib/components/chat/Messages.svelte';
+import Download from '$lib/components/icons/Download.svelte';
 
 	const i18n = getContext('i18n');
 
-	export let shareEnabled: boolean = false;
-
-	export let shareHandler: Function;
-	export let moveChatHandler: Function;
+export let moveChatHandler: Function;
 
 	export let archiveChatHandler: Function;
 
@@ -357,19 +353,6 @@
 			</DropdownMenu.Item>
 
 			<hr class="border-gray-50 dark:border-gray-800 my-1" />
-
-			{#if !$temporaryChatEnabled && ($user?.role === 'admin' || ($user.permissions?.chat?.share ?? true))}
-				<DropdownMenu.Item
-					class="flex gap-2 items-center px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl select-none w-full"
-					id="chat-share-button"
-					on:click={() => {
-						shareHandler();
-					}}
-				>
-					<Share strokeWidth="1.5" />
-					<div class="flex items-center">{$i18n.t('Share')}</div>
-				</DropdownMenu.Item>
-			{/if}
 
 			<DropdownMenu.Sub>
 				<DropdownMenu.SubTrigger

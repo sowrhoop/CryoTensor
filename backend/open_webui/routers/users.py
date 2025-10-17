@@ -11,14 +11,12 @@ from pydantic import BaseModel
 
 from open_webui.models.auths import Auths
 
-from open_webui.models.groups import Groups
 from open_webui.models.chats import Chats
 from open_webui.models.users import (
     UserModel,
     UserListResponse,
     UserInfoListResponse,
     UserIdNameListResponse,
-    UserRoleUpdateForm,
     Users,
     UserSettings,
     UserUpdateForm,
@@ -124,7 +122,7 @@ async def search_users(
 
 @router.get("/groups")
 async def get_user_groups(user=Depends(get_verified_user)):
-    return Groups.get_groups_by_member_id(user.id)
+    return []
 
 
 ############################
@@ -152,11 +150,11 @@ class WorkspacePermissions(BaseModel):
 
 
 class SharingPermissions(BaseModel):
-    public_models: bool = True
-    public_knowledge: bool = True
-    public_prompts: bool = True
-    public_tools: bool = True
-    public_notes: bool = True
+    public_models: bool = False
+    public_knowledge: bool = False
+    public_prompts: bool = False
+    public_tools: bool = False
+    public_notes: bool = False
 
 
 class ChatPermissions(BaseModel):
@@ -330,19 +328,6 @@ class UserResponse(BaseModel):
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_by_id(user_id: str, user=Depends(get_verified_user)):
-    # Check if user_id is a shared chat
-    # If it is, get the user_id from the chat
-    if user_id.startswith("shared-"):
-        chat_id = user_id.replace("shared-", "")
-        chat = Chats.get_chat_by_id(chat_id)
-        if chat:
-            user_id = chat.user_id
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.USER_NOT_FOUND,
-            )
-
     user = Users.get_user_by_id(user_id)
 
     if user:
@@ -418,6 +403,14 @@ async def update_user_by_id(
     form_data: UserUpdateForm,
     session_user=Depends(get_admin_user),
 ):
+    if user_id != session_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ERROR_MESSAGES.ACTION_PROHIBITED,
+        )
+
+    form_data.role = "admin"
+
     # Prevent modification of the primary admin user by other admins
     try:
         first_user = Users.get_first_user()
@@ -492,39 +485,10 @@ async def update_user_by_id(
 
 @router.delete("/{user_id}", response_model=bool)
 async def delete_user_by_id(user_id: str, user=Depends(get_admin_user)):
-    # Prevent deletion of the primary admin user
-    try:
-        first_user = Users.get_first_user()
-        if first_user and user_id == first_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=ERROR_MESSAGES.ACTION_PROHIBITED,
-            )
-    except Exception as e:
-        log.error(f"Error checking primary admin status: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not verify primary admin status.",
-        )
-
-    if user.id != user_id:
-        result = Auths.delete_auth_by_id(user_id)
-
-        if result:
-            return True
-
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=ERROR_MESSAGES.DELETE_USER_ERROR,
-        )
-
-    # Prevent self-deletion
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=ERROR_MESSAGES.ACTION_PROHIBITED,
     )
-
-
 ############################
 # GetUserGroupsById
 ############################
@@ -532,4 +496,4 @@ async def delete_user_by_id(user_id: str, user=Depends(get_admin_user)):
 
 @router.get("/{user_id}/groups")
 async def get_user_groups_by_id(user_id: str, user=Depends(get_admin_user)):
-    return Groups.get_groups_by_member_id(user_id)
+    return []

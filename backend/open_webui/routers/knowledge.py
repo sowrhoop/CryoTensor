@@ -1,4 +1,5 @@
 from typing import List, Optional
+from copy import deepcopy
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 import logging
@@ -33,6 +34,12 @@ log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
 router = APIRouter()
+
+
+PRIVATE_ACCESS_CONTROL = {
+    "read": {"group_ids": [], "user_ids": []},
+    "write": {"group_ids": [], "user_ids": []},
+}
 
 ############################
 # getKnowledgeBases
@@ -151,17 +158,8 @@ async def create_new_knowledge(
             detail=ERROR_MESSAGES.UNAUTHORIZED,
         )
 
-    # Check if user can share publicly
-    if (
-        user.role != "admin"
-        and form_data.access_control == None
-        and not has_permission(
-            user.id,
-            "sharing.public_knowledge",
-            request.app.state.config.USER_PERMISSIONS,
-        )
-    ):
-        form_data.access_control = {}
+    if form_data.access_control is None:
+        form_data.access_control = deepcopy(PRIVATE_ACCESS_CONTROL)
 
     knowledge = Knowledges.insert_new_knowledge(user.id, form_data)
 
@@ -319,17 +317,8 @@ async def update_knowledge_by_id(
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
 
-    # Check if user can share publicly
-    if (
-        user.role != "admin"
-        and form_data.access_control == None
-        and not has_permission(
-            user.id,
-            "sharing.public_knowledge",
-            request.app.state.config.USER_PERMISSIONS,
-        )
-    ):
-        form_data.access_control = {}
+    if form_data.access_control is None:
+        form_data.access_control = deepcopy(PRIVATE_ACCESS_CONTROL)
 
     knowledge = Knowledges.update_knowledge_by_id(id=id, form_data=form_data)
     if knowledge:

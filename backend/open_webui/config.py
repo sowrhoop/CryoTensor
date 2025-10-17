@@ -937,7 +937,7 @@ USER_PERMISSIONS_CHAT_EDIT = (
 )
 
 USER_PERMISSIONS_CHAT_SHARE = (
-    os.environ.get("USER_PERMISSIONS_CHAT_SHARE", "True").lower() == "true"
+    os.environ.get("USER_PERMISSIONS_CHAT_SHARE", "False").lower() == "true"
 )
 
 USER_PERMISSIONS_CHAT_EXPORT = (

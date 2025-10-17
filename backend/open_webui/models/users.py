@@ -1,3 +1,4 @@
+import os
 import time
 from typing import Optional
 
@@ -151,6 +152,10 @@ class UserUpdateForm(BaseModel):
 
 
 class UsersTable:
+    DEFAULT_USER_EMAIL = os.environ.get("DEFAULT_USER_EMAIL", "admin@localhost")
+    DEFAULT_USER_NAME = os.environ.get("DEFAULT_USER_NAME", "Local Admin")
+    DEFAULT_USER_PASSWORD = os.environ.get("DEFAULT_USER_PASSWORD", "admin")
+
     def insert_new_user(
         self,
         id: str,
@@ -183,13 +188,37 @@ class UsersTable:
             else:
                 return None
 
+    def get_or_create_default_user(self) -> UserModel:
+        with get_db() as db:
+            user = db.query(User).filter_by(email=self.DEFAULT_USER_EMAIL).first()
+            if user:
+                return UserModel.model_validate(user)
+
+        from open_webui.models.auths import Auths  # Circular import safe here
+        from open_webui.utils.auth import get_password_hash
+
+        hashed = get_password_hash(self.DEFAULT_USER_PASSWORD)
+        default_user = Auths.insert_new_auth(
+            self.DEFAULT_USER_EMAIL,
+            hashed,
+            self.DEFAULT_USER_NAME,
+            role="admin",
+        )
+        return default_user
+
     def get_user_by_id(self, id: str) -> Optional[UserModel]:
         try:
             with get_db() as db:
                 user = db.query(User).filter_by(id=id).first()
-                return UserModel.model_validate(user)
+                if user:
+                    return UserModel.model_validate(user)
         except Exception:
-            return None
+            pass
+
+        default_user = self.get_or_create_default_user()
+        if default_user.id == id:
+            return default_user
+        return None
 
     def get_user_by_api_key(self, api_key: str) -> Optional[UserModel]:
         try:
@@ -203,9 +232,15 @@ class UsersTable:
         try:
             with get_db() as db:
                 user = db.query(User).filter_by(email=email).first()
-                return UserModel.model_validate(user)
+                if user:
+                    return UserModel.model_validate(user)
         except Exception:
-            return None
+            pass
+
+        if email.lower() == self.DEFAULT_USER_EMAIL.lower():
+            return self.get_or_create_default_user()
+
+        return None
 
     def get_user_by_oauth_sub(self, sub: str) -> Optional[UserModel]:
         try:
@@ -221,90 +256,24 @@ class UsersTable:
         skip: Optional[int] = None,
         limit: Optional[int] = None,
     ) -> dict:
-        with get_db() as db:
-            query = db.query(User)
-
-            if filter:
-                query_key = filter.get("query")
-                if query_key:
-                    query = query.filter(
-                        or_(
-                            User.name.ilike(f"%{query_key}%"),
-                            User.email.ilike(f"%{query_key}%"),
-                        )
-                    )
-
-                order_by = filter.get("order_by")
-                direction = filter.get("direction")
-
-                if order_by == "name":
-                    if direction == "asc":
-                        query = query.order_by(User.name.asc())
-                    else:
-                        query = query.order_by(User.name.desc())
-                elif order_by == "email":
-                    if direction == "asc":
-                        query = query.order_by(User.email.asc())
-                    else:
-                        query = query.order_by(User.email.desc())
-
-                elif order_by == "created_at":
-                    if direction == "asc":
-                        query = query.order_by(User.created_at.asc())
-                    else:
-                        query = query.order_by(User.created_at.desc())
-
-                elif order_by == "last_active_at":
-                    if direction == "asc":
-                        query = query.order_by(User.last_active_at.asc())
-                    else:
-                        query = query.order_by(User.last_active_at.desc())
-
-                elif order_by == "updated_at":
-                    if direction == "asc":
-                        query = query.order_by(User.updated_at.asc())
-                    else:
-                        query = query.order_by(User.updated_at.desc())
-                elif order_by == "role":
-                    if direction == "asc":
-                        query = query.order_by(User.role.asc())
-                    else:
-                        query = query.order_by(User.role.desc())
-
-            else:
-                query = query.order_by(User.created_at.desc())
-
-            if skip:
-                query = query.offset(skip)
-            if limit:
-                query = query.limit(limit)
-
-            users = query.all()
-            return {
-                "users": [UserModel.model_validate(user) for user in users],
-                "total": db.query(User).count(),
-            }
+        user = self.get_or_create_default_user()
+        return {
+            "users": [user],
+            "total": 1,
+        }
 
     def get_users_by_user_ids(self, user_ids: list[str]) -> list[UserModel]:
-        with get_db() as db:
-            users = db.query(User).filter(User.id.in_(user_ids)).all()
-            return [UserModel.model_validate(user) for user in users]
+        user = self.get_or_create_default_user()
+        return [user] if user.id in set(user_ids) else []
 
     def get_num_users(self) -> Optional[int]:
-        with get_db() as db:
-            return db.query(User).count()
+        return 1
 
     def has_users(self) -> bool:
-        with get_db() as db:
-            return db.query(db.query(User).exists()).scalar()
+        return True
 
     def get_first_user(self) -> UserModel:
-        try:
-            with get_db() as db:
-                user = db.query(User).order_by(User.created_at).first()
-                return UserModel.model_validate(user)
-        except Exception:
-            return None
+        return self.get_or_create_default_user()
 
     def get_user_webhook_url_by_id(self, id: str) -> Optional[str]:
         try:
@@ -406,6 +375,10 @@ class UsersTable:
             return None
 
     def delete_user_by_id(self, id: str) -> bool:
+        default_user = self.get_or_create_default_user()
+        if id == default_user.id:
+            return False
+
         try:
             # Remove User from Groups
             Groups.remove_user_from_all_groups(id)
@@ -442,17 +415,11 @@ class UsersTable:
             return None
 
     def get_valid_user_ids(self, user_ids: list[str]) -> list[str]:
-        with get_db() as db:
-            users = db.query(User).filter(User.id.in_(user_ids)).all()
-            return [user.id for user in users]
+        default_user = self.get_or_create_default_user()
+        return [default_user.id] if default_user.id in set(user_ids) else []
 
     def get_super_admin_user(self) -> Optional[UserModel]:
-        with get_db() as db:
-            user = db.query(User).filter_by(role="admin").first()
-            if user:
-                return UserModel.model_validate(user)
-            else:
-                return None
+        return self.get_or_create_default_user()
 
 
 Users = UsersTable()

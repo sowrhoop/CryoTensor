@@ -674,6 +674,9 @@ app.state.TOOL_CONTENTS = {}
 app.state.FUNCTIONS = {}
 app.state.FUNCTION_CONTENTS = {}
 
+# Ensure a default admin user exists for single-user mode.
+Users.get_or_create_default_user()
+
 ########################################
 #
 # RETRIEVAL

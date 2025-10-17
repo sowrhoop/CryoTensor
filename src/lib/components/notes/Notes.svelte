@@ -33,8 +33,8 @@
 	import { onMount, getContext, onDestroy } from 'svelte';
 	import { WEBUI_NAME, config, prompts as _prompts, user } from '$lib/stores';
 
-	import { createNewNote, deleteNoteById, getNotes } from '$lib/apis/notes';
-	import { capitalizeFirstLetter, copyToClipboard, getTimeRange } from '$lib/utils';
+import { createNewNote, deleteNoteById, getNotes } from '$lib/apis/notes';
+import { capitalizeFirstLetter, getTimeRange } from '$lib/utils';
 
 	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
@@ -398,26 +398,16 @@
 													<div class=" font-semibold line-clamp-1 capitalize">{note.title}</div>
 
 													<div>
-														<NoteMenu
-															onDownload={(type) => {
-																selectedNote = note;
+						<NoteMenu
+							onDownload={(type) => {
+								selectedNote = note;
 
-																downloadHandler(type);
-															}}
-															onCopyLink={async () => {
-																const baseUrl = window.location.origin;
-																const res = await copyToClipboard(`${baseUrl}/notes/${note.id}`);
-
-																if (res) {
-																	toast.success($i18n.t('Copied link to clipboard'));
-																} else {
-																	toast.error($i18n.t('Failed to copy link'));
-																}
-															}}
-															onDelete={() => {
-																selectedNote = note;
-																showDeleteConfirm = true;
-															}}
+								downloadHandler(type);
+							}}
+							onDelete={() => {
+								selectedNote = note;
+								showDeleteConfirm = true;
+							}}
 														>
 															<button
 																class="self-center w-fit text-sm p-1 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"

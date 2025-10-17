@@ -1,12 +1,9 @@
-<script>
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+<script lang="ts">
+	import { getContext } from 'svelte';
 
-	import Users from '$lib/components/admin/Users.svelte';
-
-	onMount(() => {
-		goto('/admin/users/overview');
-	});
+	const i18n = getContext('i18n');
 </script>
 
-<Users />
+<div class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+	<p>{$i18n.t('User management is disabled in this single-user build.')}</p>
+</div>

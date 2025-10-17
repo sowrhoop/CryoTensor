@@ -20,7 +20,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 
-	import ShareChatModal from '../chat/ShareChatModal.svelte';
 	import ModelSelector from '../chat/ModelSelector.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
 	import Menu from '$lib/components/layout/Navbar/Menu.svelte';
@@ -42,9 +41,7 @@
 	const i18n = getContext('i18n');
 
 	export let initNewChat: Function;
-	export let shareEnabled: boolean = false;
-
-	export let chat;
+export let chat;
 	export let history;
 	export let selectedModels;
 	export let showModelSelector = true;
@@ -55,11 +52,8 @@
 
 	let closedBannerIds = [];
 
-	let showShareChatModal = false;
-	let showDownloadChatModal = false;
+let showDownloadChatModal = false;
 </script>
-
-<ShareChatModal bind:show={showShareChatModal} chatId={$chatId} />
 
 <button
 	id="new-chat-button"
@@ -103,7 +97,7 @@
 			"
 				>
 					{#if showModelSelector}
-						<ModelSelector bind:selectedModels showSetDefault={!shareEnabled} />
+				<ModelSelector bind:selectedModels showSetDefault={true} />
 					{/if}
 				</div>
 
@@ -178,17 +172,13 @@
 						</Tooltip>
 					{/if}
 
-					{#if shareEnabled && chat && (chat.id || $temporaryChatEnabled)}
-						<Menu
-							{chat}
-							{shareEnabled}
-							shareHandler={() => {
-								showShareChatModal = !showShareChatModal;
-							}}
-							archiveChatHandler={() => {
-								archiveChatHandler(chat.id);
-							}}
-							{moveChatHandler}
+			{#if chat && (chat.id || $temporaryChatEnabled)}
+				<Menu
+					{chat}
+					archiveChatHandler={() => {
+						archiveChatHandler(chat.id);
+					}}
+					{moveChatHandler}
 						>
 							<button
 								class="flex cursor-pointer px-2 py-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-850 transition"

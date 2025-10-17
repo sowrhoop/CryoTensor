@@ -3,70 +3,55 @@
 
 	const i18n = getContext('i18n');
 
-	import { getGroups } from '$lib/apis/groups';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Plus from '$lib/components/icons/Plus.svelte';
-	import UserCircleSolid from '$lib/components/icons/UserCircleSolid.svelte';
-	import XMark from '$lib/components/icons/XMark.svelte';
-	import Badge from '$lib/components/common/Badge.svelte';
+export let onChange: (value: any) => void = () => {};
+export let accessRoles = ['read']; // kept for API compatibility
+export let accessControl: any = null;
+export let allowPublic = false;
 
-	export let onChange: Function = () => {};
+const PUBLIC_SHARING_ENABLED = false;
+let effectiveAllowPublic = false;
 
-	export let accessRoles = ['read'];
-	export let accessControl = {};
+$: effectiveAllowPublic = PUBLIC_SHARING_ENABLED && allowPublic;
 
-	export let allowPublic = true;
-
-	let selectedGroupId = '';
-	let groups = [];
-
-	$: if (!allowPublic && accessControl === null) {
-		initPublicAccess();
-	}
-
-	const initPublicAccess = () => {
-		if (!allowPublic && accessControl === null) {
-			accessControl = {
-				read: {
-					group_ids: [],
-					user_ids: []
-				},
-				write: {
-					group_ids: [],
-					user_ids: []
-				}
-			};
-			onChange(accessControl);
+	const PRIVATE_TEMPLATE = {
+		read: {
+			group_ids: [],
+			user_ids: []
+		},
+		write: {
+			group_ids: [],
+			user_ids: []
 		}
 	};
 
-	onMount(async () => {
-		groups = await getGroups(localStorage.token);
+const applyChange = (value: any) => {
+	accessControl = value === null ? null : JSON.parse(JSON.stringify(value));
+	onChange(accessControl);
+};
 
-		if (accessControl === null) {
-			initPublicAccess();
-		} else {
-			accessControl = {
-				read: {
-					group_ids: accessControl?.read?.group_ids ?? [],
-					user_ids: accessControl?.read?.user_ids ?? []
-				},
-				write: {
-					group_ids: accessControl?.write?.group_ids ?? [],
-					user_ids: accessControl?.write?.user_ids ?? []
-				}
-			};
-		}
-	});
+onMount(() => {
+	let mutated = false;
+	if (!effectiveAllowPublic) {
+		applyChange(PRIVATE_TEMPLATE);
+		mutated = true;
+	} else if (accessControl === undefined) {
+		applyChange(null);
+		mutated = true;
+	}
+
+	if (!mutated) {
+		onChange(accessControl);
+	}
+});
 </script>
 
-<div class=" rounded-lg flex flex-col gap-2">
-	<div class="">
-		<div class=" text-sm font-semibold mb-1.5">{$i18n.t('Visibility')}</div>
+<div class="rounded-lg flex flex-col gap-2">
+	<div>
+		<div class="text-sm font-semibold mb-1.5">{$i18n.t('Visibility')}</div>
 
 		<div class="flex gap-2.5 items-center mb-1">
 			<div>
-				<div class=" p-2 bg-black/5 dark:bg-white/5 rounded-full">
+				<div class="p-2 bg-black/5 dark:bg-white/5 rounded-full">
 					{#if accessControl !== null}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -101,171 +86,43 @@
 				</div>
 			</div>
 
-			<div>
-				<select
-					id="models"
-					class="outline-hidden bg-transparent text-sm font-medium rounded-lg block w-fit pr-10 max-w-full placeholder-gray-400"
-					value={accessControl !== null ? 'private' : 'public'}
-					on:change={(e) => {
-						if (e.target.value === 'public') {
-							accessControl = null;
-						} else {
-							accessControl = {
-								read: {
-									group_ids: [],
-									user_ids: []
-								},
-								write: {
-									group_ids: [],
-									user_ids: []
-								}
-							};
-						}
-						onChange(accessControl);
-					}}
-				>
-					<option class=" text-gray-700" value="private" selected>{$i18n.t('Private')}</option>
-					{#if allowPublic}
-						<option class=" text-gray-700" value="public" selected>{$i18n.t('Public')}</option>
-					{/if}
-				</select>
+				{#if effectiveAllowPublic}
+					<div>
+						<select
+						id="access-select"
+						class="outline-hidden bg-transparent text-sm font-medium rounded-lg block w-fit pr-10 max-w-full placeholder-gray-400"
+						value={accessControl !== null ? 'private' : 'public'}
+						on:change={(e) => {
+							if (e.target.value === 'public') {
+								applyChange(null);
+							} else {
+								applyChange(PRIVATE_TEMPLATE);
+							}
+						}}
+					>
+						<option class="text-gray-700" value="private">{$i18n.t('Private')}</option>
+						<option class="text-gray-700" value="public">{$i18n.t('Public')}</option>
+					</select>
 
-				<div class=" text-xs text-gray-400 font-medium">
-					{#if accessControl !== null}
-						{$i18n.t('Only select users and groups with permission can access')}
-					{:else}
-						{$i18n.t('Accessible to all users')}
-					{/if}
+					<div class="text-xs text-gray-400 font-medium">
+						{#if accessControl !== null}
+							{$i18n.t('Only you can access this resource')}
+				{:else}
+							{$i18n.t('Accessible to anyone visiting this instance')}
+						{/if}
+					</div>
 				</div>
-			</div>
+			{:else}
+				<div class="text-xs text-gray-400 font-medium">
+					{$i18n.t('Access is restricted to the local user.')}
+				</div>
+			{/if}
 		</div>
 	</div>
+
 	{#if accessControl !== null}
-		{@const accessGroups = groups.filter((group) =>
-			(accessControl?.read?.group_ids ?? []).includes(group.id)
-		)}
-		<div>
-			<div class="">
-				<div class="flex justify-between mb-1.5">
-					<div class="text-sm font-semibold">
-						{$i18n.t('Groups')}
-					</div>
-				</div>
-
-				<div class="mb-1">
-					<div class="flex w-full">
-						<div class="flex flex-1 items-center">
-							<div class="w-full px-0.5">
-								<select
-									class="outline-hidden bg-transparent text-sm rounded-lg block w-full pr-10 max-w-full
-									{selectedGroupId ? '' : 'text-gray-500'}
-									dark:placeholder-gray-500"
-									bind:value={selectedGroupId}
-									on:change={() => {
-										if (selectedGroupId !== '') {
-											accessControl.read.group_ids = [
-												...(accessControl?.read?.group_ids ?? []),
-												selectedGroupId
-											];
-
-											selectedGroupId = '';
-											onChange(accessControl);
-										}
-									}}
-								>
-									<option class=" text-gray-700" value="" disabled selected
-										>{$i18n.t('Select a group')}</option
-									>
-									{#each groups.filter((group) => !(accessControl?.read?.group_ids ?? []).includes(group.id)) as group}
-										<option class=" text-gray-700" value={group.id}>{group.name}</option>
-									{/each}
-								</select>
-							</div>
-							<!-- <div>
-								<Tooltip content={$i18n.t('Add Group')}>
-									<button
-										class=" p-1 rounded-xl bg-transparent dark:hover:bg-white/5 hover:bg-black/5 transition font-medium text-sm flex items-center space-x-1"
-										type="button"
-										on:click={() => {}}
-									>
-										<Plus className="size-3.5" />
-									</button>
-								</Tooltip>
-							</div> -->
-						</div>
-					</div>
-				</div>
-
-				<hr class=" border-gray-100 dark:border-gray-700/10 mt-1.5 mb-2.5 w-full" />
-
-				<div class="flex flex-col gap-2 mb-1 px-0.5">
-					{#if accessGroups.length > 0}
-						{#each accessGroups as group}
-							<div class="flex items-center gap-3 justify-between text-xs w-full transition">
-								<div class="flex items-center gap-1.5 w-full font-medium">
-									<div>
-										<UserCircleSolid className="size-4" />
-									</div>
-
-									<div>
-										{group.name}
-									</div>
-								</div>
-
-								<div class="w-full flex justify-end items-center gap-0.5">
-									<button
-										class=""
-										type="button"
-										on:click={() => {
-											if (accessRoles.includes('write')) {
-												if ((accessControl?.write?.group_ids ?? []).includes(group.id)) {
-													accessControl.write.group_ids = (
-														accessControl?.write?.group_ids ?? []
-													).filter((group_id) => group_id !== group.id);
-												} else {
-													accessControl.write.group_ids = [
-														...(accessControl?.write?.group_ids ?? []),
-														group.id
-													];
-												}
-												onChange(accessControl);
-											}
-										}}
-									>
-										{#if (accessControl?.write?.group_ids ?? []).includes(group.id)}
-											<Badge type={'success'} content={$i18n.t('Write')} />
-										{:else}
-											<Badge type={'info'} content={$i18n.t('Read')} />
-										{/if}
-									</button>
-
-									<button
-										class=" rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-850 transition"
-										type="button"
-										on:click={() => {
-											accessControl.read.group_ids = (accessControl?.read?.group_ids ?? []).filter(
-												(id) => id !== group.id
-											);
-											accessControl.write.group_ids = (
-												accessControl?.write?.group_ids ?? []
-											).filter((id) => id !== group.id);
-											onChange(accessControl);
-										}}
-									>
-										<XMark />
-									</button>
-								</div>
-							</div>
-						{/each}
-					{:else}
-						<div class="flex items-center justify-center">
-							<div class="text-gray-500 text-xs text-center py-2 px-10">
-								{$i18n.t('No groups with access, add a group to grant access')}
-							</div>
-						</div>
-					{/if}
-				</div>
-			</div>
+		<div class="text-xs text-gray-500 dark:text-gray-400 px-0.5">
+			{$i18n.t('Fine-grained user or group controls are disabled in single-user mode.')}
 		</div>
 	{/if}
 </div>
