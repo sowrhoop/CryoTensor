@@ -153,6 +153,23 @@ If you want to try out the latest bleeding-edge features and are okay with occas
 docker run -d -p 3000:8080 -v open-webui:/app/backend/data --name open-webui --add-host=host.docker.internal:host-gateway --restart always ghcr.io/open-webui/open-webui:dev
 ```
 
+### Sandboxed Tool Execution
+
+Custom tools now execute in an isolated sandbox process. To ensure the sandbox
+is enforced, the host environment must provide:
+
+- **cgroup v2** mounted at `/sys/fs/cgroup` with write access for the WebUI
+  process so that memory/CPU/PID limits can be applied.
+- **`CAP_NET_ADMIN`** (or equivalent) for the container when you want the
+  automatic iptables ingress rules to be applied. Without it, the firewall rules
+  are skipped, although the sandbox still runs offline.
+
+If the `maestro-sandbox` binary is unavailable or the prerequisites are not
+met, the worker gracefully falls back to a plain subprocess. In that mode the
+code still runs outside the API server, but without the extra confinement. You
+can verify the hardened path by checking the application logs for the
+`Loaded tool ... via sandbox` message during startup.
+
 ### Offline Mode
 
 If you are running CryoTensor in an offline environment, you can set the `HF_HUB_OFFLINE` environment variable to `1` to prevent attempts to download models from the internet.

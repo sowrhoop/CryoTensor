@@ -457,9 +457,13 @@ async def get_tools_valves_spec_by_id(
             tools_module, _ = load_tool_module_by_id(id)
             request.app.state.TOOLS[id] = tools_module
 
-        if hasattr(tools_module, "Valves"):
+        if hasattr(tools_module, "Valves") and tools_module.Valves is not None:
             Valves = tools_module.Valves
-            return Valves.schema()
+            if hasattr(Valves, "model_json_schema"):
+                return Valves.model_json_schema()
+            if hasattr(Valves, "schema"):
+                return Valves.schema()
+            return None
         return None
     else:
         raise HTTPException(
@@ -500,7 +504,7 @@ async def update_tools_valves_by_id(
         tools_module, _ = load_tool_module_by_id(id)
         request.app.state.TOOLS[id] = tools_module
 
-    if not hasattr(tools_module, "Valves"):
+    if not hasattr(tools_module, "Valves") or tools_module.Valves is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=ERROR_MESSAGES.NOT_FOUND,
@@ -512,6 +516,8 @@ async def update_tools_valves_by_id(
         valves = Valves(**form_data)
         valves_dict = valves.model_dump(exclude_unset=True)
         Tools.update_tool_valves_by_id(id, valves_dict)
+        if hasattr(tools_module, "set_valves"):
+            tools_module.set_valves(valves_dict)
         return valves_dict
     except Exception as e:
         log.exception(f"Failed to update tool valves by id {id}: {e}")
@@ -557,9 +563,13 @@ async def get_tools_user_valves_spec_by_id(
             tools_module, _ = load_tool_module_by_id(id)
             request.app.state.TOOLS[id] = tools_module
 
-        if hasattr(tools_module, "UserValves"):
+        if hasattr(tools_module, "UserValves") and tools_module.UserValves is not None:
             UserValves = tools_module.UserValves
-            return UserValves.schema()
+            if hasattr(UserValves, "model_json_schema"):
+                return UserValves.model_json_schema()
+            if hasattr(UserValves, "schema"):
+                return UserValves.schema()
+            return None
         return None
     else:
         raise HTTPException(
@@ -581,7 +591,7 @@ async def update_tools_user_valves_by_id(
             tools_module, _ = load_tool_module_by_id(id)
             request.app.state.TOOLS[id] = tools_module
 
-        if hasattr(tools_module, "UserValves"):
+        if hasattr(tools_module, "UserValves") and tools_module.UserValves is not None:
             UserValves = tools_module.UserValves
 
             try:
@@ -591,6 +601,8 @@ async def update_tools_user_valves_by_id(
                 Tools.update_user_valves_by_id_and_user_id(
                     id, user.id, user_valves_dict
                 )
+                if hasattr(tools_module, "set_user_valves"):
+                    tools_module.set_user_valves(user.id, user_valves_dict)
                 return user_valves_dict
             except Exception as e:
                 log.exception(f"Failed to update user valves by id {id}: {e}")

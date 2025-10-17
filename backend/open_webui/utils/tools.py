@@ -1,7 +1,7 @@
+import copy
 import inspect
 import logging
 import re
-import inspect
 import aiohttp
 import asyncio
 import yaml
@@ -216,14 +216,17 @@ async def get_tools(
                 request.app.state.TOOLS[tool_id] = module
 
             extra_params["__id__"] = tool_id
+            extra_params.setdefault("__user__", {})
 
-            # Set valves for the tool
-            if hasattr(module, "valves") and hasattr(module, "Valves"):
+            if getattr(module, "has_valves", False):
                 valves = Tools.get_tool_valves_by_id(tool_id) or {}
-                module.valves = module.Valves(**valves)
-            if hasattr(module, "UserValves"):
-                extra_params["__user__"]["valves"] = module.UserValves(  # type: ignore
-                    **Tools.get_user_valves_by_id_and_user_id(tool_id, user.id)
+                module.set_valves(valves)
+
+            if getattr(module, "has_user_valves", False):
+                user_valves = Tools.get_user_valves_by_id_and_user_id(tool_id, user.id)
+                module.set_user_valves(user.id, user_valves or {})
+                extra_params.setdefault("__user__", {})["valves"] = (
+                    module.get_user_valves_payload(user.id)
                 )
 
             for spec in tool.specs:
@@ -240,19 +243,30 @@ async def get_tools(
                     if not key.startswith("__")
                 }
 
-                # convert to function that takes only model params and inserts custom params
                 function_name = spec["name"]
-                tool_function = getattr(module, function_name)
-                callable = get_async_tool_function_and_apply_extra_params(
-                    tool_function, extra_params
-                )
-
-                # TODO: Support Pydantic models as parameters
-                if callable.__doc__ and callable.__doc__.strip() != "":
-                    s = re.split(":(param|return)", callable.__doc__, 1)
-                    spec["description"] = s[0]
+                docstring = module.get_doc(function_name)
+                if docstring:
+                    spec["description"] = parse_description(docstring)
                 else:
                     spec["description"] = function_name
+
+                async def callable(  # type: ignore[valid-type]
+                    _function_name=function_name,
+                    _module=module,
+                    _user_id=str(user.id),
+                    **call_kwargs,
+                ):
+                    extra_payload = copy.deepcopy(extra_params)
+                    if getattr(_module, "has_user_valves", False):
+                        extra_payload.setdefault("__user__", {})["valves"] = (
+                            _module.get_user_valves_payload(_user_id)
+                        )
+                    return await _module.invoke(
+                        _function_name,
+                        call_kwargs,
+                        extra_payload,
+                        _user_id,
+                    )
 
                 tool_dict = {
                     "tool_id": tool_id,
@@ -260,9 +274,8 @@ async def get_tools(
                     "spec": spec,
                     # Misc info
                     "metadata": {
-                        "file_handler": hasattr(module, "file_handler")
-                        and module.file_handler,
-                        "citation": hasattr(module, "citation") and module.citation,
+                        "file_handler": getattr(module, "file_handler", False),
+                        "citation": getattr(module, "citation", None),
                     },
                 }
 
