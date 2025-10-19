@@ -1,34 +1,98 @@
+version: "3.9"
+
+x-default-env: &default-env
+  TZ: ${TZ:-UTC}
+  SCARF_NO_ANALYTICS: "true"
+  DO_NOT_TRACK: "true"
+  ANONYMIZED_TELEMETRY: "false"
+
 services:
   ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama}:${OLLAMA_DOCKER_TAG:-latest}
+    container_name: ollama
+    pull_policy: ${OLLAMA_PULL_POLICY:-if-not-present}
+    restart: unless-stopped
+    tty: true
+    environment:
+      OLLAMA_HOST: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     volumes:
       - ollama:/root/.ollama
-    container_name: ollama
-    pull_policy: always
-    tty: true
-    restart: unless-stopped
-    image: ollama/ollama:${OLLAMA_DOCKER_TAG-latest}
+    networks:
+      - cryotensor
 
-  open-webui:
+  webui:
+    image: ${WEBUI_IMAGE:-cryotensor-webui:latest}
+    container_name: cryotensor-webui
     build:
       context: .
-      args:
-        OLLAMA_BASE_URL: '/ollama'
       dockerfile: Dockerfile
-    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
-    container_name: open-webui
+      args:
+        BUILD_HASH: ${WEBUI_BUILD_HASH:-dev-build}
+        UID: ${WEBUI_UID:-0}
+        GID: ${WEBUI_GID:-0}
+        USE_OLLAMA: ${USE_OLLAMA:-true}
+        USE_CUDA: ${USE_CUDA:-false}
+        USE_SLIM: ${USE_SLIM:-false}
+        USE_PERMISSION_HARDENING: ${USE_PERMISSION_HARDENING:-false}
+        USE_CUDA_VER: ${USE_CUDA_VER:-cu128}
+        USE_EMBEDDING_MODEL: ${USE_EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+        USE_RERANKING_MODEL: ${USE_RERANKING_MODEL:-}
+        USE_TIKTOKEN_ENCODING_NAME: ${USE_TIKTOKEN_ENCODING_NAME:-cl100k_base}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      <<: *default-env
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-}
+      REDIS_URL: ${REDIS_URL:-}
+      WEBSOCKET_REDIS_URL: ${WEBSOCKET_REDIS_URL:-}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/backend/data/webui.db}
+      HF_HOME: /app/backend/data/cache/embedding/models
+      USE_OLLAMA_DOCKER: ${USE_OLLAMA:-true}
+      USE_CUDA_DOCKER: ${USE_CUDA:-false}
+      USE_SLIM_DOCKER: ${USE_SLIM:-false}
+    init: true
+    ports:
+      - "${OPEN_WEBUI_PORT:-3000}:8080"
     volumes:
       - open-webui:/app/backend/data
-    depends_on:
-      - ollama
-    ports:
-      - ${OPEN_WEBUI_PORT-3000}:8080
-    environment:
-      - 'OLLAMA_BASE_URL=http://ollama:11434'
-      - 'WEBUI_SECRET_KEY='
     extra_hosts:
-      - host.docker.internal:host-gateway
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    networks:
+      - cryotensor
+
+  redis:
+    image: redis:7-alpine
+    container_name: cryotensor-redis
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+    networks:
+      - cryotensor
+    profiles:
+      - redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  cryotensor:
+    driver: bridge
 
 volumes:
   ollama: {}
   open-webui: {}
+  redis: {}

@@ -12,7 +12,7 @@ ARG BUILD_HASH=dev-build
 ARG UID=0
 ARG GID=0
 
-FROM --platform=$BUILDPLATFORM node:22-alpine3.20 AS build
+FROM --platform=$BUILDPLATFORM node:22-alpine3.20 AS frontend-build
 ARG BUILD_HASH
 
 WORKDIR /app
@@ -20,13 +20,17 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 COPY package.json package-lock.json ./
-RUN npm ci --force
+RUN npm ci
 
-COPY . .
+COPY postcss.config.js svelte.config.js tailwind.config.js tsconfig.json vite.config.ts ./
+COPY static ./static
+COPY src ./src
+COPY CHANGELOG.md ./CHANGELOG.md
+
 ENV APP_BUILD_HASH=${BUILD_HASH}
 RUN npm run build
 
-FROM python:3.11-slim-bookworm AS base
+FROM python:3.11-slim-bookworm AS runtime
 
 ARG USE_CUDA
 ARG USE_OLLAMA
@@ -35,8 +39,14 @@ ARG USE_SLIM
 ARG USE_PERMISSION_HARDENING
 ARG USE_EMBEDDING_MODEL
 ARG USE_RERANKING_MODEL
+ARG USE_TIKTOKEN_ENCODING_NAME
 ARG UID
 ARG GID
+ARG BUILD_HASH
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
 ENV ENV=prod \
     PORT=8080 \
@@ -63,26 +73,25 @@ ENV RAG_EMBEDDING_MODEL="$USE_EMBEDDING_MODEL_DOCKER" \
     RAG_RERANKING_MODEL="$USE_RERANKING_MODEL_DOCKER" \
     SENTENCE_TRANSFORMERS_HOME="/app/backend/data/cache/embedding/models"
 
-ENV TIKTOKEN_ENCODING_NAME="cl100k_base" \
+ENV TIKTOKEN_ENCODING_NAME="${USE_TIKTOKEN_ENCODING_NAME}" \
     TIKTOKEN_CACHE_DIR="/app/backend/data/cache/tiktoken"
 
-ENV HF_HOME="/app/backend/data/cache/embedding/models"
+ENV HF_HOME="/app/backend/data/cache/embedding/models" \
+    HOME=/root
 
 WORKDIR /app/backend
 
-ENV HOME=/root
-
-RUN if [ $UID -ne 0 ]; then \
-    if [ $GID -ne 0 ]; then \
-    addgroup --gid $GID app; \
+RUN if [ "$UID" -ne 0 ] || [ "$GID" -ne 0 ]; then \
+    GROUP_ID="$GID"; \
+    if [ "$GROUP_ID" -eq 0 ]; then \
+        GROUP_ID="$UID"; \
     fi; \
-    adduser --uid $UID --gid $GID --home $HOME --disabled-password --no-create-home app; \
+    addgroup --gid "$GROUP_ID" app 2>/dev/null || true; \
+    adduser --uid "$UID" --gid "$GROUP_ID" --home "$HOME" --disabled-password --no-create-home app; \
     fi
 
-RUN mkdir -p $HOME/.cache/chroma && \
-    echo -n 00000000-0000-0000-0000-000000000000 > $HOME/.cache/chroma/telemetry_user_id
-
-RUN chown -R $UID:$GID /app $HOME
+RUN mkdir -p "$HOME/.cache/chroma" && \
+    echo -n 00000000-0000-0000-0000-000000000000 > "$HOME/.cache/chroma/telemetry_user_id"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -99,45 +108,63 @@ RUN apt-get update && \
         libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --chown=$UID:$GID ./backend/requirements.txt ./requirements.txt
+COPY --chown=${UID}:${GID} ./backend/requirements.txt ./requirements.txt
 
-RUN pip3 install --no-cache-dir uv && \
-    if [ "$USE_CUDA" = "true" ]; then \
-        pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/$USE_CUDA_DOCKER_VER --no-cache-dir && \
-        uv pip install --system -r requirements.txt --no-cache-dir && \
-        python -c "import os; from sentence_transformers import SentenceTransformer; SentenceTransformer(os.environ['RAG_EMBEDDING_MODEL'], device='cpu')" && \
-        python -c "import os; from faster_whisper import WhisperModel; WhisperModel(os.environ['WHISPER_MODEL'], device='cpu', compute_type='int8', download_root=os.environ['WHISPER_MODEL_DIR'])"; \
-        python -c "import os; import tiktoken; tiktoken.get_encoding(os.environ['TIKTOKEN_ENCODING_NAME'])"; \
+RUN python -m pip install --no-cache-dir --upgrade pip && \
+    python -m pip install --no-cache-dir "uv==0.5.11"
+
+RUN set -eux; \
+    if [ "${USE_CUDA,,}" = "true" ]; then \
+        python -m pip install --no-cache-dir torch torchvision torchaudio --index-url "https://download.pytorch.org/whl/${USE_CUDA_DOCKER_VER}"; \
     else \
-        pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu --no-cache-dir && \
-        uv pip install --system -r requirements.txt --no-cache-dir && \
-        if [ "$USE_SLIM" != "true" ]; then \
-            python -c "import os; from sentence_transformers import SentenceTransformer; SentenceTransformer(os.environ['RAG_EMBEDDING_MODEL'], device='cpu')" && \
-            python -c "import os; from faster_whisper import WhisperModel; WhisperModel(os.environ['WHISPER_MODEL'], device='cpu', compute_type='int8', download_root=os.environ['WHISPER_MODEL_DIR'])"; \
-        python -c "import os; import tiktoken; tiktoken.get_encoding(os.environ['TIKTOKEN_ENCODING_NAME'])"; \
-        fi; \
+        python -m pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu; \
     fi; \
-    mkdir -p /app/backend/data && chown -R $UID:$GID /app/backend/data/ && \
-    rm -rf /var/lib/apt/lists/*
+    uv pip install --system --no-cache-dir -r requirements.txt; \
+    if [ "${USE_CUDA,,}" = "true" ] || [ "${USE_SLIM,,}" != "true" ]; then \
+        python - <<'PY' \
+import os
+from sentence_transformers import SentenceTransformer
+from faster_whisper import WhisperModel
 
-RUN if [ "$USE_OLLAMA" = "true" ]; then \
+SentenceTransformer(os.environ["RAG_EMBEDDING_MODEL"], device="cpu")
+WhisperModel(
+    os.environ["WHISPER_MODEL"],
+    device="cpu",
+    compute_type="int8",
+    download_root=os.environ["WHISPER_MODEL_DIR"],
+)
+PY
+    fi; \
+    python - <<'PY' \
+import os
+import tiktoken
+
+tiktoken.get_encoding(os.environ["TIKTOKEN_ENCODING_NAME"])
+PY
+
+RUN mkdir -p /app/backend/data && \
+    if [ "$UID" -ne 0 ] || [ "$GID" -ne 0 ]; then \
+        chown -R "$UID":"$GID" /app/backend/data "$HOME"; \
+    fi
+
+RUN if [ "${USE_OLLAMA,,}" = "true" ]; then \
     date +%s > /tmp/ollama_build_hash && \
     echo "Cache broken at timestamp: $(cat /tmp/ollama_build_hash)" && \
     curl -fsSL https://ollama.com/install.sh | sh && \
     rm -rf /var/lib/apt/lists/*; \
     fi
 
-COPY --chown=$UID:$GID --from=build /app/build /app/build
-COPY --chown=$UID:$GID --from=build /app/CHANGELOG.md /app/CHANGELOG.md
-COPY --chown=$UID:$GID --from=build /app/package.json /app/package.json
+COPY --chown=${UID}:${GID} --from=frontend-build /app/build /app/build
+COPY --chown=${UID}:${GID} --from=frontend-build /app/CHANGELOG.md /app/CHANGELOG.md
+COPY --chown=${UID}:${GID} --from=frontend-build /app/package.json /app/package.json
 
-COPY --chown=$UID:$GID ./backend .
+COPY --chown=${UID}:${GID} ./backend .
 
 EXPOSE 8080
 
 HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health | jq -ne 'input.status == true' || exit 1
 
-RUN if [ "$USE_PERMISSION_HARDENING" = "true" ]; then \
+RUN if [ "${USE_PERMISSION_HARDENING,,}" = "true" ]; then \
     set -eux; \
     chgrp -R 0 /app /root || true; \
     chmod -R g+rwX /app /root || true; \
@@ -147,8 +174,7 @@ RUN if [ "$USE_PERMISSION_HARDENING" = "true" ]; then \
 
 USER $UID:$GID
 
-ARG BUILD_HASH
-ENV WEBUI_BUILD_VERSION=${BUILD_HASH}
-ENV DOCKER=true
+ENV WEBUI_BUILD_VERSION=${BUILD_HASH} \
+    DOCKER=true
 
 CMD ["bash", "start.sh"]
