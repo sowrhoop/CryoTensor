@@ -121,26 +121,9 @@ RUN set -eux; \
     fi; \
     uv pip install --system --no-cache-dir -r requirements.txt; \
     if [ "${USE_CUDA,,}" = "true" ] || [ "${USE_SLIM,,}" != "true" ]; then \
-        python - <<'PY'
-import os
-from sentence_transformers import SentenceTransformer
-from faster_whisper import WhisperModel
-
-SentenceTransformer(os.environ["RAG_EMBEDDING_MODEL"], device="cpu")
-WhisperModel(
-    os.environ["WHISPER_MODEL"],
-    device="cpu",
-    compute_type="int8",
-    download_root=os.environ["WHISPER_MODEL_DIR"],
-)
-PY
+        python -c "import os; from sentence_transformers import SentenceTransformer; from faster_whisper import WhisperModel; SentenceTransformer(os.environ['RAG_EMBEDDING_MODEL'], device='cpu'); WhisperModel(os.environ['WHISPER_MODEL'], device='cpu', compute_type='int8', download_root=os.environ['WHISPER_MODEL_DIR'])"; \
     fi; \
-    python - <<'PY'
-import os
-import tiktoken
-
-tiktoken.get_encoding(os.environ["TIKTOKEN_ENCODING_NAME"])
-PY
+    python -c "import os, tiktoken; tiktoken.get_encoding(os.environ['TIKTOKEN_ENCODING_NAME'])"
 
 RUN mkdir -p /app/backend/data && \
     if [ "$UID" -ne 0 ] || [ "$GID" -ne 0 ]; then \
