@@ -25,8 +25,6 @@ RUN npm ci
 COPY postcss.config.js svelte.config.js tailwind.config.js tsconfig.json vite.config.ts ./
 COPY static ./static
 COPY src ./src
-COPY CHANGELOG.md ./CHANGELOG.md
-
 ENV APP_BUILD_HASH=${BUILD_HASH}
 RUN npm run build
 
@@ -138,7 +136,6 @@ RUN if [ "${USE_OLLAMA,,}" = "true" ]; then \
     fi
 
 COPY --chown=${UID}:${GID} --from=frontend-build /app/build /app/build
-COPY --chown=${UID}:${GID} --from=frontend-build /app/CHANGELOG.md /app/CHANGELOG.md
 COPY --chown=${UID}:${GID} --from=frontend-build /app/package.json /app/package.json
 
 COPY --chown=${UID}:${GID} ./backend .
