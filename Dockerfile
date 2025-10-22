@@ -112,13 +112,15 @@ RUN python -m pip install --no-cache-dir --upgrade pip && \
     python -m pip install --no-cache-dir "uv==0.5.11"
 
 RUN set -eux; \
-    if [ "${USE_CUDA,,}" = "true" ]; then \
+    USE_CUDA_LC=$(printf '%s' "${USE_CUDA:-}" | tr '[:upper:]' '[:lower:]'); \
+    USE_SLIM_LC=$(printf '%s' "${USE_SLIM:-}" | tr '[:upper:]' '[:lower:]'); \
+    if [ "$USE_CUDA_LC" = "true" ]; then \
         python -m pip install --no-cache-dir torch torchvision torchaudio --index-url "https://download.pytorch.org/whl/${USE_CUDA_DOCKER_VER}"; \
     else \
         python -m pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu; \
     fi; \
     uv pip install --system --no-cache-dir -r requirements.txt; \
-    if [ "${USE_CUDA,,}" = "true" ] || [ "${USE_SLIM,,}" != "true" ]; then \
+    if [ "$USE_CUDA_LC" = "true" ] || [ "$USE_SLIM_LC" != "true" ]; then \
         python -c "import os; from sentence_transformers import SentenceTransformer; from faster_whisper import WhisperModel; SentenceTransformer(os.environ['RAG_EMBEDDING_MODEL'], device='cpu'); WhisperModel(os.environ['WHISPER_MODEL'], device='cpu', compute_type='int8', download_root=os.environ['WHISPER_MODEL_DIR'])"; \
     fi; \
     python -c "import os, tiktoken; tiktoken.get_encoding(os.environ['TIKTOKEN_ENCODING_NAME'])"
