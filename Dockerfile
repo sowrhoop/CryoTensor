@@ -121,7 +121,7 @@ RUN set -eux; \
     fi; \
     uv pip install --system --no-cache-dir -r requirements.txt; \
     if [ "${USE_CUDA,,}" = "true" ] || [ "${USE_SLIM,,}" != "true" ]; then \
-        python - <<'PY' \
+        python - <<'PY'
 import os
 from sentence_transformers import SentenceTransformer
 from faster_whisper import WhisperModel
@@ -135,7 +135,7 @@ WhisperModel(
 )
 PY
     fi; \
-    python - <<'PY' \
+    python - <<'PY'
 import os
 import tiktoken
 
