@@ -173,13 +173,28 @@ def _guard_websocket_clients() -> None:
         if original is None or getattr(original, "_network_guard_patched", False):
             return
 
-        @functools.wraps(original)
-        def guarded_connect(*args: Any, **kwargs: Any):
-            uri = kwargs.get("uri")
-            if uri is None and args:
-                uri = args[0]
-            _ensure_allowed(uri)
-            return original(*args, **kwargs)
+        # _client.connect() is async and legacy sync. Detect coroutine quickly.
+        is_coroutine = hasattr(original, "__code__") and bool(original.__code__.co_flags & 0x80)
+
+        if is_coroutine:
+
+            @functools.wraps(original)
+            async def guarded_connect(*args: Any, **kwargs: Any):
+                uri = kwargs.get("uri")
+                if uri is None and args:
+                    uri = args[0]
+                _ensure_allowed(uri)
+                return await original(*args, **kwargs)
+
+        else:
+
+            @functools.wraps(original)
+            def guarded_connect(*args: Any, **kwargs: Any):
+                uri = kwargs.get("uri")
+                if uri is None and args:
+                    uri = args[0]
+                _ensure_allowed(uri)
+                return original(*args, **kwargs)
 
         guarded_connect._network_guard_patched = True  # type: ignore[attr-defined]
         guarded_connect._network_guard_original = original  # type: ignore[attr-defined]
