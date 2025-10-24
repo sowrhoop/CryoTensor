@@ -166,17 +166,29 @@ def _guard_websocket_clients() -> None:
     except Exception:  # pragma: no cover - dependency missing
         return
 
-    original_ws_connect_async = websockets.client.connect
+    def _patch_async_connect(module: Any) -> None:
+        if module is None:
+            return
+        original = getattr(module, "connect", None)
+        if original is None or getattr(original, "_network_guard_patched", False):
+            return
 
-    @functools.wraps(original_ws_connect_async)
-    async def guarded_ws_connect_async(*args: Any, **kwargs: Any):
-        uri = kwargs.get("uri")
-        if uri is None and args:
-            uri = args[0]
-        _ensure_allowed(uri)
-        return await original_ws_connect_async(*args, **kwargs)
+        @functools.wraps(original)
+        def guarded_connect(*args: Any, **kwargs: Any):
+            uri = kwargs.get("uri")
+            if uri is None and args:
+                uri = args[0]
+            _ensure_allowed(uri)
+            return original(*args, **kwargs)
 
-    websockets.client.connect = guarded_ws_connect_async  # type: ignore[assignment]
+        guarded_connect._network_guard_patched = True  # type: ignore[attr-defined]
+        guarded_connect._network_guard_original = original  # type: ignore[attr-defined]
+        setattr(module, "connect", guarded_connect)
+
+    _patch_async_connect(websockets)
+    _patch_async_connect(getattr(websockets, "client", None))
+    legacy = getattr(websockets, "legacy", None)
+    _patch_async_connect(getattr(legacy, "client", None) if legacy else None)
 
 
 def apply_network_restrictions() -> None:
