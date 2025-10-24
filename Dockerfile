@@ -130,11 +130,13 @@ RUN mkdir -p /app/backend/data && \
         chown -R "$UID":"$GID" /app/backend/data "$HOME"; \
     fi
 
-RUN if [ "${USE_OLLAMA,,}" = "true" ]; then \
-    date +%s > /tmp/ollama_build_hash && \
-    echo "Cache broken at timestamp: $(cat /tmp/ollama_build_hash)" && \
-    curl -fsSL https://ollama.com/install.sh | sh && \
-    rm -rf /var/lib/apt/lists/*; \
+RUN set -eux; \
+    USE_OLLAMA_LC=$(printf '%s' "${USE_OLLAMA:-}" | tr '[:upper:]' '[:lower:]'); \
+    if [ "$USE_OLLAMA_LC" = "true" ]; then \
+        date +%s > /tmp/ollama_build_hash && \
+        echo "Cache broken at timestamp: $(cat /tmp/ollama_build_hash)" && \
+        curl -fsSL https://ollama.com/install.sh | sh && \
+        rm -rf /var/lib/apt/lists/*; \
     fi
 
 COPY --chown=${UID}:${GID} --from=frontend-build /app/build /app/build
@@ -146,12 +148,13 @@ EXPOSE 8080
 
 HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health | jq -ne 'input.status == true' || exit 1
 
-RUN if [ "${USE_PERMISSION_HARDENING,,}" = "true" ]; then \
-    set -eux; \
-    chgrp -R 0 /app /root || true; \
-    chmod -R g+rwX /app /root || true; \
-    find /app -type d -exec chmod g+s {} + || true; \
-    find /root -type d -exec chmod g+s {} + || true; \
+RUN set -eux; \
+    USE_PERMISSION_HARDENING_LC=$(printf '%s' "${USE_PERMISSION_HARDENING:-}" | tr '[:upper:]' '[:lower:]'); \
+    if [ "$USE_PERMISSION_HARDENING_LC" = "true" ]; then \
+        chgrp -R 0 /app /root || true; \
+        chmod -R g+rwX /app /root || true; \
+        find /app -type d -exec chmod g+s {} + || true; \
+        find /root -type d -exec chmod g+s {} + || true; \
     fi
 
 USER $UID:$GID
