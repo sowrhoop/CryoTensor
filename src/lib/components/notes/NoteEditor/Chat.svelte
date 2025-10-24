@@ -47,8 +47,8 @@
 
 	import { splitStream } from '$lib/utils';
 
-	import Messages from '$lib/components/notes/NoteEditor/Chat/Messages.svelte';
-import MessageInput from './MessageInput.svelte';
+import Messages from '$lib/components/notes/NoteEditor/Chat/Messages.svelte';
+import MessageInput from '$lib/components/notes/NoteEditor/Chat/MessageInput.svelte';
 	import XMark from '$lib/components/icons/XMark.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Pencil from '$lib/components/icons/Pencil.svelte';

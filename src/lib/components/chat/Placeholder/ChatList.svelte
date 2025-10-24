@@ -10,7 +10,8 @@
 
 	dayjs.extend(localizedFormat);
 
-	export let chats = [];
+export let chats = [];
+export let show = false;
 
 	let chatList = null;
 

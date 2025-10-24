@@ -43,9 +43,10 @@
 	let modelTransferring = false;
 	let modelTag = '';
 
-	let createModelLoading = false;
-	let createModelName = '';
-	let createModelObject = '';
+let createModelLoading = false;
+let createModelName = '';
+let createModelObject = '';
+let createModelTag = '';
 
 	let createModelDigest = '';
 	let createModelPullProgress = null;
@@ -444,7 +445,7 @@
 	const createModelHandler = async () => {
 		createModelLoading = true;
 
-		let modelObject = {};
+	let modelObject: Record<string, unknown> = {};
 		// parse createModelObject
 		try {
 			modelObject = JSON.parse(createModelObject);
@@ -454,7 +455,11 @@
 			return;
 		}
 
-		const res = await createModel(
+	const parsedModel = (modelObject as { model?: unknown }).model;
+	createModelTag =
+		typeof parsedModel === 'string' && parsedModel.trim() !== '' ? parsedModel : createModelName;
+
+	const res = await createModel(
 			localStorage.token,
 			{
 				model: createModelName,
@@ -493,6 +498,17 @@
 							}
 
 							if (data.status) {
+								const streamedTag =
+									typeof data?.name === 'string'
+										? data.name
+										: typeof data?.tag === 'string'
+											? data.tag
+											: null;
+
+								if (streamedTag) {
+									createModelTag = streamedTag;
+								}
+
 								if (
 									!data.digest &&
 									!data.status.includes('writing') &&
@@ -528,13 +544,14 @@
 			)
 		);
 
-		createModelLoading = false;
+	createModelLoading = false;
 
-		createModelName = '';
-		createModelObject = '';
-		createModelDigest = '';
-		createModelPullProgress = null;
-	};
+	createModelName = '';
+	createModelObject = '';
+	createModelDigest = '';
+	createModelPullProgress = null;
+	createModelTag = '';
+};
 
 	const init = async () => {
 		loading = true;
