@@ -1796,7 +1796,12 @@ async def healthcheck_with_db():
     return {"status": True}
 
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+else:
+    log.warning(
+        "Static directory not found at '%s'. Skipping static file mount.", STATIC_DIR
+    )
 
 
 @app.get("/cache/{path:path}")
